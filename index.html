@@ -33,6 +33,7 @@
         .calculation-section h5 { color: #2c3e50; margin-bottom: 10px; font-size: 1.1em; }
         .constant-item label { font-size: 0.9em; margin-bottom: 3px; }
         .custom-times-modal h2 { margin-bottom: 20px; color: #2c3e50; }
+        .virgin-pressure-hint { font-size: 0.85em; color: #666; margin-top: 5px; font-style: italic; }
 
         /* Buttons */
         .project-nav-btn { background: #3498db; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.2em; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -415,7 +416,8 @@
             </div>
             <div class="input-field" style="margin-bottom: 20px;">
                 <label>Offtake Depth (m tvdss)</label>
-                <input type="number" id="offtakeDepth" value="2000" step="10">
+                <input type="number" id="offtakeDepth" value="2000" step="10" oninput="updateOfftakeVirginPressure()">
+                <div class="virgin-pressure-hint" id="offtakeVirginPressure">Virgin pressure: -- bar</div>
             </div>
             <div class="interpolation-toggle">
                 <label>Use Smooth Interpolation:</label>
@@ -472,7 +474,8 @@
                 </div>
                 <div class="input-field">
                     <label>Measurement Depth (m tvdss)</label>
-                    <input type="number" id="modalDepth" step="10">
+                    <input type="number" id="modalDepth" step="10" oninput="updateStationVirginPressure()">
+                    <div class="virgin-pressure-hint" id="stationVirginPressure">Virgin pressure: -- bar</div>
                 </div>
             </div>
         </div>
@@ -519,6 +522,10 @@
                 <div class="constant-item">
                     <label>Reservoir Temperature (°C)</label>
                     <input type="number" id="reservoirTemp" value="80" step="5">
+                </div>
+                <div class="constant-item">
+                    <label>Aquifer Overpressure (bar)</label>
+                    <input type="number" id="aquiferOverpressure" value="0" step="1">
                 </div>
             </div>
         </div>
@@ -597,10 +604,13 @@
                             appSettings: data.appSettings || { currentTime: 0 }
                         };
                         
-                        // Ensure all projects have description field
+                        // Ensure all projects have description field and aquiferOverpressure
                         this.state.projects.forEach(project => {
                             if (project.description === undefined) {
                                 project.description = '';
+                            }
+                            if (project.config.aquiferOverpressure === undefined) {
+                                project.config.aquiferOverpressure = 0;
                             }
                         });
                         
@@ -641,6 +651,11 @@
                         // Remove old fields
                         delete project.config.customHeader;
                         delete project.config.currentTime;
+                        
+                        // Add new fields if missing
+                        if (project.config.aquiferOverpressure === undefined) {
+                            project.config.aquiferOverpressure = 0;
+                        }
                         
                         this.state.projects = [project];
                         this.state.currentProjectId = project.id;
@@ -684,6 +699,7 @@
                         waterCompressibility: 4.5e-5,
                         rockCompressibility: 1e-5,
                         reservoirTemp: 80,
+                        aquiferOverpressure: 0,
                         customTimes: [],
                         selectedCustomTime: null
                     }
@@ -1197,6 +1213,16 @@
                     updateSimulation();
                     break;
                 case 'constantsUpdated':
+                    // Update virgin pressure display if constants modal is open
+                    if (document.getElementById('constantsModal').style.display === 'block') {
+                        updateOfftakeVirginPressure();
+                    }
+                    if (document.getElementById('stationModal').style.display === 'block') {
+                        updateStationVirginPressure();
+                    }
+                    updatePressureHistory();
+                    updateSimulation();
+                    break;
                 case 'offtakeSettingsUpdated':
                     updatePressureChart();
                     updatePressureHistory();
@@ -1338,6 +1364,11 @@
             updateSimulation();
         });
         
+        document.getElementById('aquiferOverpressure').addEventListener('input', function() {
+            appState.updateConstants({ aquiferOverpressure: parseFloat(this.value) });
+            updateSimulation();
+        });
+        
         // Station modal inputs
         document.getElementById('modalCustomName').addEventListener('input', updateStationFromModal);
         document.getElementById('modalDistance').addEventListener('input', updateStationFromModal);
@@ -1349,7 +1380,7 @@
         document.getElementById('modalDepth').addEventListener('input', updateStationFromModal);
         
         // ===========================================
-        // PHYSICS EQUATIONS (UNCHANGED)
+        // PHYSICS EQUATIONS (UPDATED WITH OVERPRESSURE)
         // ===========================================
         
         // Convert permeability from millidarcy to m²
@@ -1466,6 +1497,21 @@
             document.title = headerText;
         }
         
+        // Update virgin pressure displays
+        function updateOfftakeVirginPressure() {
+            const depth = parseFloat(document.getElementById('offtakeDepth').value);
+            const virginPressure = calculateHydrostaticPressure(depth);
+            document.getElementById('offtakeVirginPressure').textContent = 
+                `Virgin pressure: ${virginPressure.toFixed(1)} bar`;
+        }
+        
+        function updateStationVirginPressure() {
+            const depth = parseFloat(document.getElementById('modalDepth').value);
+            const virginPressure = calculateHydrostaticPressure(depth);
+            document.getElementById('stationVirginPressure').textContent = 
+                `Virgin pressure: ${virginPressure.toFixed(1)} bar`;
+        }
+        
         // Load project to UI
         function loadProjectToUI(project) {
             const config = project.config;
@@ -1478,6 +1524,7 @@
             document.getElementById('waterCompressibility').value = config.waterCompressibility || 4.5e-5;
             document.getElementById('rockCompressibility').value = config.rockCompressibility || 1e-5;
             document.getElementById('reservoirTemp').value = config.reservoirTemp || 80;
+            document.getElementById('aquiferOverpressure').value = config.aquiferOverpressure || 0;
             document.getElementById('numStations').value = config.numStations || 2;
             document.getElementById('numStationsLeft').value = config.numStationsLeft || 0;
             document.getElementById('useSplineInterpolation').checked = config.useSplineInterpolation !== false;
@@ -1485,6 +1532,9 @@
             
             // Update header
             updateHeader();
+            
+            // Update virgin pressure display
+            updateOfftakeVirginPressure();
             
             // Load offtake custom name
             if (config.stations && config.stations.length > 0) {
@@ -2387,7 +2437,7 @@
                 
                 html += '<div class="calculation-section">';
                 html += '<h5>Offtake Pressure</h5>';
-                html += renderLatex('P_{hydrostatic} = \\rho g h = ' + hydrostaticPressure.toFixed(2) + ' \\text{ bar}');
+                html += renderLatex('P_{hydrostatic} = \\rho g h + P_{overpressure} = ' + hydrostaticPressure.toFixed(2) + ' \\text{ bar}');
                 html += '<div class="calc-value">Current Pressure: ' + offtakePressure.toFixed(2) + ' bar</div>';
                 html += '<div class="calc-value">Depletion: ' + depletion.toFixed(2) + ' bar</div>';
                 html += '</div>';
@@ -2883,6 +2933,7 @@
             // If it's the offtake station
             if (station.distance === 0) {
                 document.getElementById('offtakeCustomName').value = station.customName || '';
+                updateOfftakeVirginPressure();
                 showOfftakeModal();
                 return;
             }
@@ -2898,6 +2949,8 @@
             document.getElementById('modalPorosity').value = station.porosity;
             document.getElementById('modalPermeability').value = station.permeability;
             document.getElementById('modalDepth').value = station.depth;
+            
+            updateStationVirginPressure();
             
             document.getElementById('stationModal').style.display = 'block';
         }
@@ -2983,10 +3036,11 @@
             if (!project) return 0;
             
             const waterDensity = parseFloat(project.config.waterDensity) * 1000; // kg/m³
+            const overpressure = parseFloat(project.config.aquiferOverpressure || 0); // bar
             const g = 9.81; // m/s²
             const pressure_pa = waterDensity * g * depth;
             const pressure_bar = pressure_pa / 1e5;
-            return pressure_bar;
+            return pressure_bar + overpressure;
         }
         
         function addPressureEntry(time = '', pressure = '', updateData = true) {
