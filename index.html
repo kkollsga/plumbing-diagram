@@ -130,7 +130,7 @@
         .slider::-moz-range-track { width: 100%; height: 4px; background: transparent; border-radius: 2px; }
         .slider-track-bg { position: absolute; top: 10px; height: 4px; background: #e0e0e0; width: 100%; border-radius: 2px; z-index: 1; }
         .slider-track-fill { position: absolute; top: 10px; height: 4px; background: #7f8c8d; border-radius: 2px; z-index: 2; pointer-events: none; }
-
+        
         /* Modals */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); animation: slideIn 0.3s ease; position: relative; }
@@ -449,12 +449,12 @@
                     <input type="text" id="modalCustomName" placeholder="Default: Station X">
                 </div>
                 <div class="input-field">
-                    <label>Distance from Offtake (km)</label>
-                    <input type="number" id="modalDistance" step="0.1" min="0">
+                    <label id="modalDistanceLabel">Distance (km)</label>
+                    <input type="number" id="modalDistance" step="1" min="0">
                 </div>
                 <div class="input-field">
                     <label>Permeability (mD)</label>
-                    <input type="number" id="modalPermeability" step="10">
+                    <input type="number" id="modalPermeability" step="10" min="0">
                 </div>
                 <div class="input-field">
                     <label>Average Net/Gross</label>
@@ -1210,6 +1210,7 @@
                     break;
                 case 'pressureDataUpdated':
                     updatePressureChart();
+                    updatePressureHistory(); // Add this line - this was missing!
                     updateSimulation();
                     break;
                 case 'constantsUpdated':
@@ -2385,8 +2386,21 @@
         function updateSliderTrack() {
             const slider = document.getElementById('timeSlider');
             const track = document.getElementById('sliderTrack');
-            const percent = (slider.value - slider.min) / (slider.max - slider.min) * 100;
-            track.style.width = percent + '%';
+            const percent = (slider.value - slider.min) / (slider.max - slider.min);
+            
+            // Account for thumb width (24px) - thumb is centered on position
+            // So we need to adjust the track to align with the center of the thumb
+            const thumbRadius = 12; // Half of 24px thumb width
+            const containerWidth = slider.offsetWidth;
+            const effectiveWidth = containerWidth - (2 * thumbRadius);
+            const pixelOffset = thumbRadius;
+            
+            // Calculate the actual width in pixels
+            const trackWidth = (effectiveWidth * percent) + thumbRadius;
+            
+            // Set both width and left position
+            track.style.width = trackWidth + 'px';
+            track.style.left = '0px';
         }
         
         function formatTimeDisplay(years) {
@@ -2873,7 +2887,7 @@
                 depletionDiv.className = 'depletion-display';
                 depletionDiv.id = `${station.id}Depletion`;
                 depletionDiv.textContent = '0.0 bar';
-                const depletionTooltipText = "Depletion from hydrostatic pressure";
+                const depletionTooltipText = "Depletion";
                 depletionDiv.onmouseenter = () => showTooltip(depletionDiv, depletionTooltipText, depletionDiv);
                 depletionDiv.onmouseleave = hideTooltip;
                 
@@ -2904,6 +2918,7 @@
                     permLabel.className = 'parameter-label permeability';
                     permLabel.id = `perm${index}`;
                     permLabel.style.left = `${(pipeLeft + nextLeft) / 2}%`;
+                    permLabel.style.transform = 'translateX(-50%)'; // Add this line
                     permLabel.textContent = '-- mD';
                     plumbingDiagram.appendChild(permLabel);
                     
@@ -2911,6 +2926,7 @@
                     dimLabel.className = 'parameter-label dimensions';
                     dimLabel.id = `dim${index}`;
                     dimLabel.style.left = `${(pipeLeft + nextLeft) / 2}%`;
+                    dimLabel.style.transform = 'translateX(-50%)'; // Add this line
                     dimLabel.textContent = '-- × -- m';
                     plumbingDiagram.appendChild(dimLabel);
                     
@@ -2918,6 +2934,7 @@
                     distLabel.className = 'distance-label';
                     distLabel.id = `dist${index}`;
                     distLabel.style.left = `${(pipeLeft + nextLeft) / 2}%`;
+                    distLabel.style.transform = 'translateX(-50%)'; // Add this line
                     distLabel.textContent = '-- km';
                     plumbingDiagram.appendChild(distLabel);
                 }
@@ -2940,9 +2957,45 @@
             
             currentStationIndex = index;
             
+            // Find the previous station based on the station's side
+            let prevStation = null;
+            let distanceToPrev = station.distance;
+            
+            if (station.isLeft) {
+                // For left stations, find the station with next smaller distance (closer to offtake)
+                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = leftStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    prevStation = leftStations[stationPos - 1];
+                    distanceToPrev = station.distance - prevStation.distance;
+                }
+            } else {
+                // For right stations, find the station with next smaller distance
+                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = rightStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    prevStation = rightStations[stationPos - 1];
+                    distanceToPrev = station.distance - prevStation.distance;
+                }
+            }
+            
+            // Update the distance label dynamically
+            const distanceInput = document.getElementById('modalDistance');
+            const inputField = distanceInput.closest('.input-field');
+            const label = inputField.querySelector('label');
+            if (label) {
+                if (prevStation) {
+                    label.textContent = `Distance to ${prevStation.name} (km)`;
+                } else {
+                    label.textContent = 'Distance to Offtake (km)';
+                }
+            }
+            
             document.getElementById('stationModalTitle').textContent = `${station.name} Parameters`;
             document.getElementById('modalCustomName').value = station.customName || '';
-            document.getElementById('modalDistance').value = station.distance;
+            document.getElementById('modalDistance').value = distanceToPrev;
             document.getElementById('modalHeight').value = station.height;
             document.getElementById('modalWidth').value = station.width;
             document.getElementById('modalNTG').value = station.ntg;
@@ -2963,11 +3016,34 @@
             
             const station = project.config.stations[currentStationIndex];
             const customName = document.getElementById('modalCustomName').value;
+            const inputDistance = parseFloat(document.getElementById('modalDistance').value);
+            
+            // Calculate absolute distance from offtake based on the input distance to previous station
+            let newAbsoluteDistance = inputDistance;
+            
+            if (station.isLeft) {
+                // For left stations, find the station with next smaller distance
+                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = leftStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    const prevStation = leftStations[stationPos - 1];
+                    newAbsoluteDistance = prevStation.distance + inputDistance;
+                }
+            } else {
+                // For right stations, find the station with next smaller distance
+                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = rightStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    const prevStation = rightStations[stationPos - 1];
+                    newAbsoluteDistance = prevStation.distance + inputDistance;
+                }
+            }
             
             // Determine the default name based on position
             let defaultName;
             if (station.isLeft) {
-                // For left stations, L1 is closest to offtake (10km), L2 is further (20km), etc.
                 const leftStations = project.config.stations.filter(s => s.isLeft).sort((a, b) => a.distance - b.distance);
                 const positionFromOfftake = leftStations.findIndex(s => s === station) + 1;
                 defaultName = `Station L${positionFromOfftake}`;
@@ -2982,8 +3058,8 @@
             const updates = {
                 customName: customName,
                 name: customName || defaultName,
-                distance: parseFloat(document.getElementById('modalDistance').value),
-                isLeft: station.isLeft, // Preserve the side
+                distance: newAbsoluteDistance,
+                isLeft: station.isLeft,
                 height: parseFloat(document.getElementById('modalHeight').value),
                 width: parseFloat(document.getElementById('modalWidth').value),
                 ntg: parseFloat(document.getElementById('modalNTG').value),
@@ -2992,7 +3068,30 @@
                 depth: parseFloat(document.getElementById('modalDepth').value)
             };
             
+            // Update this station
             appState.updateStation(currentStationIndex, updates);
+            
+            // Update positions of dependent stations (stations further from offtake)
+            const allStations = [...project.config.stations];
+            const distanceChange = newAbsoluteDistance - station.distance;
+            
+            if (Math.abs(distanceChange) > 0.001) {
+                if (station.isLeft) {
+                    // Update all left stations with greater distance
+                    allStations.forEach((s, idx) => {
+                        if (s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
+                            appState.updateStation(idx, { distance: s.distance + distanceChange });
+                        }
+                    });
+                } else {
+                    // Update all right stations with greater distance
+                    allStations.forEach((s, idx) => {
+                        if (!s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
+                            appState.updateStation(idx, { distance: s.distance + distanceChange });
+                        }
+                    });
+                }
+            }
             
             // Update chart dataset label if chart exists
             if (stationPressureChart && stationPressureChart.data.datasets[currentStationIndex]) {
@@ -3048,8 +3147,8 @@
             const entry = document.createElement('div');
             entry.className = 'pressure-entry';
             entry.innerHTML = `
-                <input type="number" placeholder="Time (years)" value="${time}" step="0.1" onchange="updatePressureData()">
-                <input type="number" placeholder="Pressure (bar)" value="${pressure}" step="1" onchange="updatePressureData()">
+                <input type="number" placeholder="Time (years)" value="${time}" step="0.1" oninput="updatePressureData()">
+                <input type="number" placeholder="Pressure (bar)" value="${pressure}" step="1" oninput="updatePressureData()">
                 <button class="danger" onclick="removePressureEntry(this)">Remove</button>
             `;
             container.appendChild(entry);
@@ -3093,15 +3192,8 @@
             
             pressureData.sort((a, b) => a.time - b.time);
             
-            // If still no pressure data after t=0, add defaults
-            if (pressureData.length <= 1) {
-                addPressureEntry(1, 180);
-                addPressureEntry(5, 160);
-                addPressureEntry(10, 140);
-                addPressureEntry(20, 120);
-                return;
-            }
-            
+            // REMOVED: Automatic default pressure entries
+            // Just update with whatever data we have
             appState.updatePressureData(pressureData);
             updatePressureChart();
             updateSimulation();
@@ -3109,7 +3201,8 @@
         
         // Cubic spline interpolation
         function cubicSplineInterpolate(points, x) {
-            if (points.length < 2) return 0;
+            if (points.length === 0) return 0;
+            if (points.length === 1) return points[0].pressure; // Return constant pressure if only one point
             if (x <= points[0].time) return points[0].pressure;
             if (x >= points[points.length - 1].time) return points[points.length - 1].pressure;
             
@@ -3131,7 +3224,7 @@
             // Calculate alpha values
             for (let i = 1; i < n - 1; i++) {
                 alpha[i] = (3 / h[i]) * (points[i + 1].pressure - points[i].pressure) -
-                          (3 / h[i - 1]) * (points[i].pressure - points[i - 1].pressure);
+                        (3 / h[i - 1]) * (points[i].pressure - points[i - 1].pressure);
             }
             
             // Calculate l, mu, and z values
@@ -3153,7 +3246,7 @@
             for (let j = n - 2; j >= 0; j--) {
                 c[j] = z[j] - mu[j] * c[j + 1];
                 b[j] = (points[j + 1].pressure - points[j].pressure) / h[j] -
-                       h[j] * (c[j + 1] + 2 * c[j]) / 3;
+                    h[j] * (c[j + 1] + 2 * c[j]) / 3;
                 d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
             }
             
@@ -3175,7 +3268,8 @@
         
         // Linear interpolation
         function linearInterpolate(points, x) {
-            if (points.length < 2) return 0;
+            if (points.length === 0) return 0;
+            if (points.length === 1) return points[0].pressure; // Return constant pressure if only one point
             if (x <= points[0].time) return points[0].pressure;
             if (x >= points[points.length - 1].time) return points[points.length - 1].pressure;
             
@@ -3197,7 +3291,11 @@
         // Interpolate pressure at given time
         function interpolatePressure(time) {
             const project = appState.getCurrentProject();
-            if (!project || !project.config.pressureData) return 0;
+            if (!project || !project.config.pressureData || project.config.pressureData.length === 0) {
+                // If no pressure data at all, return hydrostatic pressure
+                const offtakeDepth = parseFloat(project.config.offtakeDepth || 2000);
+                return calculateHydrostaticPressure(offtakeDepth);
+            }
             
             const useSpline = project.config.useSplineInterpolation;
             const pressureData = project.config.pressureData;
@@ -3731,12 +3829,6 @@
             const currentProject = appState.getCurrentProject();
             if (currentProject) {
                 loadProjectToUI(currentProject);
-            }
-            
-            // Update pressure data if needed
-            const project = appState.getCurrentProject();
-            if (project && (!project.config.pressureData || project.config.pressureData.length === 0)) {
-                updatePressureData();
             }
             
             // Update slider track
