@@ -52,7 +52,6 @@
         .secondary:hover { background: #7f8c8d; }
         .success { background: #27ae60; }
         .success:hover { background: #229954; }
-        .pressure-entry button { padding: 5px 10px; font-size: 0.9em; }
         .import-export-btn { background: none; color: #666; border: 1px solid #ddd; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 1.1em; transition: all 0.3s ease; }
         .import-export-btn:hover { background: white; color: #333; border-color: #999; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
         .form-actions button { padding: 6px 12px; font-size: 0.9em; min-width: 35px; }
@@ -66,8 +65,6 @@
         textarea { resize: vertical; min-height: 60px; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #3498db; }
         input:disabled { background-color: #f5f5f5; cursor: not-allowed; }
-        .pressure-entry { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .pressure-entry input { flex: 1; }
         .constant-item input { padding: 8px; }
         .slider-container input { border: none; }
         .project-form input[type="text"], .project-form textarea { width: 100%; margin-bottom: 15px; }
@@ -76,6 +73,22 @@
         .export-item-checkbox { width: 20px; height: 20px; cursor: pointer; }
         .custom-time-form input[type="text"], .custom-time-form textarea { width: 100%; }
         .time-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+
+        /* Pressure Table Styles */
+        .pressure-table-container { margin: 20px 0; background: #f8f9fa; border-radius: 8px; padding: 15px; }
+        .pressure-table-hint { font-size: 0.85em; color: #666; margin-bottom: 10px; font-style: italic; }
+        .pressure-table { width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .pressure-table th { background: #e9ecef; padding: 10px; text-align: left; font-weight: 600; color: #495057; font-size: 0.9em; }
+        .pressure-table td { padding: 8px; border-top: 1px solid #dee2e6; }
+        .pressure-table tr:hover { background: #f8f9fa; }
+        .pressure-table input { width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .pressure-table input:focus { border-color: #3498db; background: #f0f8ff; }
+        .pressure-table .delete-btn { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; }
+        .pressure-table .delete-btn:hover { background: #fee; }
+        .add-row-btn { background: #27ae60; color: white; padding: 8px 16px; border-radius: 5px; font-size: 0.9em; margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; }
+        .add-row-btn:hover { background: #229954; }
+        .add-row-btn i { font-size: 0.85em; }
+        .pressure-table tbody tr:first-child .delete-btn { visibility: hidden; }
 
         /* Diagram Specific */
         .plumbing-diagram { width: 100%; height: 400px; margin: 20px 0; background: #ffffff; border: 1px solid #e1e4e8; border-radius: 10px; padding: 20px; position: relative; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06); }
@@ -428,10 +441,26 @@
                 <span style="color: #666; font-size: 0.9em;">(Cubic spline vs linear)</span>
             </div>
             <h3>Pressure Schedule</h3>
-            <div id="pressureEntries">
-                <!-- Pressure entries will be added here -->
+            <div class="pressure-table-container">
+                <div class="pressure-table-hint">
+                    <i class="fas fa-info-circle"></i> You can paste data directly from Excel or CSV
+                </div>
+                <table class="pressure-table" id="pressureTable">
+                    <thead>
+                        <tr>
+                            <th>Time (years)</th>
+                            <th>Pressure (bar)</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="pressureTableBody">
+                        <!-- Rows will be added here -->
+                    </tbody>
+                </table>
+                <button class="add-row-btn" onclick="addPressureRow()">
+                    <i class="fas fa-plus"></i> Add Row
+                </button>
             </div>
-            <button onclick="addPressureEntry()">Add Pressure Entry</button>
             <div class="chart-container">
                 <canvas id="pressureChart"></canvas>
             </div>
@@ -1545,15 +1574,8 @@
                 }
             }
             
-            // Load pressure data UI
-            document.getElementById('pressureEntries').innerHTML = '';
-            if (config.pressureData && config.pressureData.length > 0) {
-                config.pressureData.forEach(entry => {
-                    if (entry.time > 0) {
-                        addPressureEntry(entry.time, entry.pressure, false);
-                    }
-                });
-            }
+            // Load pressure data UI with new table format
+            loadPressureTable();
             
             // Load time slider
             const maxTime = parseFloat(config.simulationLength || 10);
@@ -3127,7 +3149,7 @@
         }
         
         // ===========================================
-        // PRESSURE DATA FUNCTIONS
+        // PRESSURE DATA FUNCTIONS (ENHANCED FOR TABLE)
         // ===========================================
         
         function calculateHydrostaticPressure(depth) {
@@ -3142,67 +3164,133 @@
             return pressure_bar + overpressure;
         }
         
-        function addPressureEntry(time = '', pressure = '', updateData = true) {
-            const container = document.getElementById('pressureEntries');
-            const entry = document.createElement('div');
-            entry.className = 'pressure-entry';
-            entry.innerHTML = `
-                <input type="number" placeholder="Time (years)" value="${time}" step="0.1" oninput="updatePressureData()">
-                <input type="number" placeholder="Pressure (bar)" value="${pressure}" step="1" oninput="updatePressureData()">
-                <button class="danger" onclick="removePressureEntry(this)">Remove</button>
-            `;
-            container.appendChild(entry);
-            
-            if (updateData) {
-                updatePressureData();
-            }
-        }
-        
-        function removePressureEntry(button) {
-            button.parentElement.remove();
-            updatePressureData();
-        }
-        
-        function updatePressureData() {
+        // Load pressure data into table format
+        function loadPressureTable() {
             const project = appState.getCurrentProject();
             if (!project) return;
             
-            const entries = document.querySelectorAll('.pressure-entry');
+            const tbody = document.getElementById('pressureTableBody');
+            tbody.innerHTML = '';
+            
+            // Always add the first row (hydrostatic at t=0)
+            const hydrostaticPressure = calculateHydrostaticPressure(project.config.offtakeDepth || 2000);
+            addPressureRowElement(0, hydrostaticPressure, true);
+            
+            // Add rows for existing pressure data (skip t=0)
+            if (project.config.pressureData) {
+                project.config.pressureData.forEach(entry => {
+                    if (entry.time > 0) {
+                        addPressureRowElement(entry.time, entry.pressure);
+                    }
+                });
+            }
+        }
+        
+        // Add a new pressure row to the table
+        function addPressureRow() {
+            addPressureRowElement('', '');
+            updatePressureTableData();
+        }
+        
+        // Create and add a pressure row element
+        function addPressureRowElement(time = '', pressure = '', isFirst = false) {
+            const tbody = document.getElementById('pressureTableBody');
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td><input type="number" placeholder="Time" value="${time}" step="0.1" ${isFirst ? 'disabled' : ''} onchange="updatePressureTableData()"></td>
+                <td><input type="number" placeholder="Pressure" value="${pressure}" step="1" ${isFirst ? 'disabled' : ''} onchange="updatePressureTableData()"></td>
+                <td><button class="delete-btn" onclick="deletePressureRow(this)" ${isFirst ? 'style="visibility: hidden;"' : ''}><i class="fas fa-times"></i></button></td>
+            `;
+            
+            tbody.appendChild(row);
+        }
+        
+        // Delete a pressure row
+        function deletePressureRow(button) {
+            const row = button.closest('tr');
+            row.remove();
+            updatePressureTableData();
+        }
+        
+        // Update pressure data from table
+        function updatePressureTableData() {
+            const project = appState.getCurrentProject();
+            if (!project) return;
+            
+            const tbody = document.getElementById('pressureTableBody');
+            const rows = tbody.querySelectorAll('tr');
             const pressureData = [];
             
-            // Check if stations are initialized
-            if (!project.config.stations || project.config.stations.length === 0) {
-                return;
-            }
-            
-            // Add hydrostatic pressure at t=0
-            const offtakeDepth = parseFloat(project.config.offtakeDepth);
-            const hydrostaticPressure = calculateHydrostaticPressure(offtakeDepth);
-            pressureData.push({ time: 0, pressure: hydrostaticPressure });
-            
-            entries.forEach(entry => {
-                const inputs = entry.querySelectorAll('input');
+            rows.forEach((row, index) => {
+                const inputs = row.querySelectorAll('input');
                 const time = parseFloat(inputs[0].value);
                 const pressure = parseFloat(inputs[1].value);
                 
-                if (!isNaN(time) && !isNaN(pressure) && time > 0) {
+                if (!isNaN(time) && !isNaN(pressure)) {
                     pressureData.push({ time, pressure });
                 }
             });
             
             pressureData.sort((a, b) => a.time - b.time);
             
-            // REMOVED: Automatic default pressure entries
-            // Just update with whatever data we have
             appState.updatePressureData(pressureData);
-            updatePressureChart();
-            updateSimulation();
         }
+        
+        // Handle paste event on the pressure table
+        document.addEventListener('DOMContentLoaded', function() {
+            const pressureTable = document.getElementById('pressureTable');
+            
+            if (pressureTable) {
+                pressureTable.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    
+                    const clipboardData = e.clipboardData || window.clipboardData;
+                    const pastedData = clipboardData.getData('text');
+                    
+                    // Parse the pasted data
+                    const rows = pastedData.trim().split('\n');
+                    const data = [];
+                    
+                    rows.forEach(row => {
+                        const cells = row.split(/\t|,|;|\s+/); // Support tab, comma, semicolon, or space delimited
+                        if (cells.length >= 2) {
+                            const time = parseFloat(cells[0]);
+                            const pressure = parseFloat(cells[1]);
+                            if (!isNaN(time) && !isNaN(pressure) && time > 0) {
+                                data.push({ time, pressure });
+                            }
+                        }
+                    });
+                    
+                    if (data.length > 0) {
+                        // Clear existing rows (except the first hydrostatic row)
+                        const tbody = document.getElementById('pressureTableBody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        rows.slice(1).forEach(row => row.remove());
+                        
+                        // Add new rows
+                        data.forEach(entry => {
+                            addPressureRowElement(entry.time, entry.pressure);
+                        });
+                        
+                        // Update the pressure data
+                        updatePressureTableData();
+                        
+                        showNotification(
+                            `Pasted ${data.length} pressure entries`,
+                            'success',
+                            3000
+                        );
+                    }
+                });
+            }
+        });
         
         // Cubic spline interpolation
         function cubicSplineInterpolate(points, x) {
             if (points.length === 0) return 0;
-            if (points.length === 1) return points[0].pressure; // Return constant pressure if only one point
+            if (points.length === 1) return points[0].pressure;
             if (x <= points[0].time) return points[0].pressure;
             if (x >= points[points.length - 1].time) return points[points.length - 1].pressure;
             
@@ -3269,7 +3357,7 @@
         // Linear interpolation
         function linearInterpolate(points, x) {
             if (points.length === 0) return 0;
-            if (points.length === 1) return points[0].pressure; // Return constant pressure if only one point
+            if (points.length === 1) return points[0].pressure;
             if (x <= points[0].time) return points[0].pressure;
             if (x >= points[points.length - 1].time) return points[points.length - 1].pressure;
             
@@ -3836,4 +3924,4 @@
         };
     </script>
 </body>
-</html>
+</html>s
