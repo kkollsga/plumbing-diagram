@@ -10,9 +10,42 @@
     <!-- Add Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* CSS Variables for theming */
+        :root {
+            /* Blue theme for inputs - more subtle */
+            --input-bg-color: #f7fbfe;
+            --input-border-color: #e1f0fa;
+            --input-scrollbar-thumb: #a8d4f0;
+            --input-scrollbar-thumb-hover: #7fc4f0;
+            
+            /* Purple theme for calculations - more subtle */
+            --calc-bg-color: #faf7fe;
+            --calc-border-color: #e8e1fa;
+            --calc-scrollbar-thumb: #d4a8f0;
+            --calc-scrollbar-thumb-hover: #b27ff0;
+            --calc-inner-bg: #f5f0fc;
+            
+            /* Max heights */
+            --inline-input-max-height: 700px;
+            --calculation-max-height: 1200px;
+            
+            /* Scrollbar dimensions */
+            --scrollbar-width: 8px;
+            --scrollbar-thumb-radius: 4px;
+        }
+        
         /* Global & Body */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+
+        /* Custom Scrollbar Styling */
+        .custom-scroll { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+        .custom-scroll::-webkit-scrollbar { width: var(--scrollbar-width); height: var(--scrollbar-width); }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; border-radius: var(--scrollbar-thumb-radius); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: var(--scrollbar-thumb-radius); border: none; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+        .custom-scroll-blue { --scrollbar-thumb: var(--input-scrollbar-thumb); --scrollbar-thumb-hover: var(--input-scrollbar-thumb-hover); }
+        .custom-scroll-purple { --scrollbar-thumb: var(--calc-scrollbar-thumb); --scrollbar-thumb-hover: var(--calc-scrollbar-thumb-hover); }
 
         /* Layout & Containers */
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
@@ -74,18 +107,27 @@
         .custom-time-form input[type="text"], .custom-time-form textarea { width: 100%; }
         .time-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
 
+        /* Inline Input Area - Enhanced */
+        .inline-input-container { background: var(--input-bg-color); overflow: hidden; max-height: 0; margin: 0; position: relative; border-radius: 10px; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s ease-out, box-shadow 0.3s ease-out, transform 0.3s ease-out; transform: translateY(-10px); opacity: 0; }
+        .inline-input-container.active { margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 1px solid var(--input-border-color); transform: translateY(0); opacity: 1; max-height: var(--inline-input-max-height); }
+        .inline-input-content { padding: 20px; position: relative; overflow-y: auto; overflow-x: hidden; max-height: calc(var(--inline-input-max-height) - 40px); }
+        .inline-input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--input-border-color); }
+        .inline-input-title { font-size: 1.3em; font-weight: 600; color: #2c3e50; }
+        .inline-input-close { background: none; border: none; color: #999; cursor: pointer; font-size: 1.5em; padding: 5px; transition: color 0.2s; line-height: 1; }
+        .inline-input-close:hover { color: #333; }
+
         /* Pressure Table Styles */
-        .pressure-table-container { margin: 20px 0; background: #f8f9fa; border-radius: 8px; padding: 15px; }
+        .pressure-table-container { margin: 20px 0; background: rgba(225, 240, 250, 0.3); border-radius: 8px; padding: 15px; border: 1px solid var(--input-border-color); }
         .pressure-table-hint { font-size: 0.85em; color: #666; margin-bottom: 10px; font-style: italic; }
         .pressure-table { width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .pressure-table th { background: #e9ecef; padding: 10px; text-align: left; font-weight: 600; color: #495057; font-size: 0.9em; }
+        .pressure-table th { background: #f0f7fc; padding: 10px; text-align: left; font-weight: 600; color: #495057; font-size: 0.9em; }
         .pressure-table td { padding: 8px; border-top: 1px solid #dee2e6; }
-        .pressure-table tr:hover { background: #f8f9fa; }
+        .pressure-table tr:hover { background: #fafcfe; }
         .pressure-table input { width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-        .pressure-table input:focus { border-color: #3498db; background: #f0f8ff; }
+        .pressure-table input:focus { border-color: #7fc4f0; background: #fafcfe; }
         .pressure-table .delete-btn { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; }
         .pressure-table .delete-btn:hover { background: #fee; }
-        .add-row-btn { background: #27ae60; color: white; padding: 8px 16px; border-radius: 5px; font-size: 0.9em; margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; }
+        .add-row-btn { background: #27ae60; color: white; padding: 8px 16px; border-radius: 5px; font-size: 0.9em; margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .add-row-btn:hover { background: #229954; }
         .add-row-btn i { font-size: 0.85em; }
         .pressure-table tbody tr:first-child .delete-btn { visibility: hidden; }
@@ -106,14 +148,15 @@
         .pressure-display { font-size: 0.75em; margin-top: 2px; opacity: 0.9; font-weight: 500; }
         .depletion-display { font-size: 1.1em; margin-top: 4px; font-weight: 800; color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); background: rgba(0,0,0,0.2); padding: 3px 10px; border-radius: 4px; display: inline-block; }
 
-        /* Calculation Info & Display */
-        .calculation-info { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 20px; display: none; animation: slideDown 0.3s ease; }
-        .calculation-info.active { display: block; }
-        .calculation-details { background: white; padding: 15px; border-radius: 6px; margin-top: 10px; border: 1px solid #dee2e6; transition: opacity 0.15s ease; min-height: 200px; position: relative; }
-        .equation { font-family: 'Courier New', monospace; background: #f1f3f5; padding: 10px; border-radius: 4px; margin: 10px 0; overflow-x: auto; }
+        /* Calculation Info & Display - Enhanced */
+        .calculation-info { background: var(--calc-bg-color); border: 1px solid var(--calc-border-color); border-radius: 10px; padding: 0; margin-top: 20px; max-height: 0; overflow: hidden; opacity: 0; transform: translateY(-10px); transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-out, transform 0.3s ease-out, box-shadow 0.3s ease-out; }
+        .calculation-info.active { max-height: var(--calculation-max-height); opacity: 1; transform: translateY(0); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .calculation-info-content { padding: 20px; overflow-y: auto; overflow-x: hidden; max-height: calc(var(--calculation-max-height) - 40px); }
+        .calculation-details { background: var(--calc-inner-bg); padding: 15px; border-radius: 6px; margin-top: 10px; border: 1px solid var(--calc-border-color); transition: opacity 0.15s ease; min-height: 200px; position: relative; }
+        .equation { font-family: 'Courier New', monospace; background: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 4px; margin: 10px 0; overflow-x: auto; border: 1px solid var(--calc-border-color); }
         .katex-display { margin: 10px 0; overflow-x: auto; overflow-y: hidden; }
-        .calculation-section { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px; margin: 15px 0; }
-        .calc-value { background: #e8f4f8; padding: 8px 12px; border-radius: 4px; margin: 5px 0; font-family: 'Courier New', monospace; }
+        .calculation-section { background: rgba(255, 255, 255, 0.7); border: 1px solid var(--calc-border-color); border-radius: 6px; padding: 15px; margin: 15px 0; }
+        .calc-value { background: rgba(255, 255, 255, 0.9); padding: 8px 12px; border-radius: 4px; margin: 5px 0; font-family: 'Courier New', monospace; border: 1px solid var(--calc-border-color); }
 
         /* Time Slider & Dropdown */
         .time-slider { margin: 20px 0; position: relative; }
@@ -214,7 +257,15 @@
         input:checked + .toggle-slider:before { transform: translateX(26px); }
 
         /* Charts */
-        .chart-container { position: relative; height: 400px; margin-top: 20px; }
+        .chart-container { 
+            position: relative; 
+            height: 400px; 
+            margin-top: 20px; 
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
 
         /* Tooltips */
         .tooltip { position: absolute; background: rgba(51, 51, 51, 0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.9em; white-space: nowrap; z-index: 1000; pointer-events: none; opacity: 0; transition: opacity 0.2s ease-in-out; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: translateX(-50%); }
@@ -223,7 +274,14 @@
 
         /* UI States & Debugging */
         .selected-element { outline: 3px solid #3498db; outline-offset: 2px; }
-        .debug-info { background: #f0f2f5; padding: 15px; border-radius: 6px; margin: 15px 0; font-size: 0.95em; }
+        .debug-info { 
+            background: var(--calc-inner-bg); 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin: 15px 0; 
+            font-size: 0.95em; 
+            border: 1px solid var(--calc-border-color);
+        }
         .debug-info .updating-indicator { color: #999; font-size: 0.9em; font-style: italic; margin-left: 10px; animation: fadeIn 0.3s ease; }
 
         /* Notifications */
@@ -279,8 +337,15 @@
             <!-- Plumbing Diagram -->
             <div class="plumbing-diagram" id="plumbingDiagram">
                 <div class="time-display" id="timeDisplay">0.0 years since start</div>
-                <div class="constants-btn" onclick="showConstantsModal()">Constants</div>
+                <div class="constants-btn" onclick="showInlineInput('constants')">Constants</div>
                 <div class="info-toggle-btn" onclick="toggleCalculationInfo()">Calculations</div>
+            </div>
+
+            <!-- Inline Input Container -->
+            <div class="inline-input-container" id="inlineInputContainer">
+                <div class="inline-input-content custom-scroll custom-scroll-blue" id="inlineInputContent">
+                    <!-- Content will be dynamically populated here -->
+                </div>
             </div>
 
             <!-- Time Slider -->
@@ -310,15 +375,17 @@
 
             <!-- Calculation Info Area -->
             <div class="calculation-info" id="calculationInfo">
-                <h3>Calculation Details</h3>
-                <p>Hover over any station to see its calculation details.</p>
-                
-                <div class="debug-info" id="debugInfo">
-                    <!-- Debug info will be shown here -->
-                </div>
-                
-                <div id="calculationDetails" class="calculation-details">
-                    <!-- Details will be populated here -->
+                <div class="calculation-info-content custom-scroll custom-scroll-purple">
+                    <h3>Calculation Details</h3>
+                    <p>Hover over any station to see its calculation details.</p>
+                    
+                    <div class="debug-info" id="debugInfo">
+                        <!-- Debug info will be shown here -->
+                    </div>
+                    
+                    <div id="calculationDetails" class="calculation-details">
+                        <!-- Details will be populated here -->
+                    </div>
                 </div>
             </div>
 
@@ -418,148 +485,6 @@
         </div>
     </div>
 
-    <!-- Offtake Modal -->
-    <div id="offtakeModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('offtakeModal')">&times;</span>
-            <h2>Offtake Configuration</h2>
-            <div class="input-field" style="margin-bottom: 20px;">
-                <label>Station Name</label>
-                <input type="text" id="offtakeCustomName" placeholder="Default: Offtake">
-            </div>
-            <div class="input-field" style="margin-bottom: 20px;">
-                <label>Offtake Depth (m tvdss)</label>
-                <input type="number" id="offtakeDepth" value="2000" step="10" oninput="updateOfftakeVirginPressure()">
-                <div class="virgin-pressure-hint" id="offtakeVirginPressure">Virgin pressure: -- bar</div>
-            </div>
-            <div class="interpolation-toggle">
-                <label>Use Smooth Interpolation:</label>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="useSplineInterpolation" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-                <span style="color: #666; font-size: 0.9em;">(Cubic spline vs linear)</span>
-            </div>
-            <h3>Pressure Schedule</h3>
-            <div class="pressure-table-container">
-                <div class="pressure-table-hint">
-                    <i class="fas fa-info-circle"></i> You can paste data directly from Excel or CSV
-                </div>
-                <table class="pressure-table" id="pressureTable">
-                    <thead>
-                        <tr>
-                            <th>Time (years)</th>
-                            <th>Pressure (bar)</th>
-                            <th style="width: 50px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="pressureTableBody">
-                        <!-- Rows will be added here -->
-                    </tbody>
-                </table>
-                <button class="add-row-btn" onclick="addPressureRow()">
-                    <i class="fas fa-plus"></i> Add Row
-                </button>
-            </div>
-            <div class="chart-container">
-                <canvas id="pressureChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Station Modal Template -->
-    <div id="stationModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('stationModal')">&times;</span>
-            <h2 id="stationModalTitle">Station Parameters</h2>
-            <div class="input-group">
-                <div class="input-field">
-                    <label>Station Name</label>
-                    <input type="text" id="modalCustomName" placeholder="Default: Station X">
-                </div>
-                <div class="input-field">
-                    <label id="modalDistanceLabel">Distance (km)</label>
-                    <input type="number" id="modalDistance" step="1" min="0">
-                </div>
-                <div class="input-field">
-                    <label>Permeability (mD)</label>
-                    <input type="number" id="modalPermeability" step="10" min="0">
-                </div>
-                <div class="input-field">
-                    <label>Average Net/Gross</label>
-                    <input type="number" id="modalNTG" step="0.01" min="0" max="1">
-                </div>
-                <div class="input-field">
-                    <label>Aquifer Width (km)</label>
-                    <input type="number" id="modalWidth" step="0.1">
-                </div>
-                <div class="input-field">
-                    <label>Aquifer Height (m)</label>
-                    <input type="number" id="modalHeight" step="1">
-                </div>
-                <div class="input-field">
-                    <label>Porosity</label>
-                    <input type="number" id="modalPorosity" step="0.01" min="0" max="1">
-                </div>
-                <div class="input-field">
-                    <label>Measurement Depth (m tvdss)</label>
-                    <input type="number" id="modalDepth" step="10" oninput="updateStationVirginPressure()">
-                    <div class="virgin-pressure-hint" id="stationVirginPressure">Virgin pressure: -- bar</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Constants Modal -->
-    <div id="constantsModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('constantsModal')">&times;</span>
-            <h2>Physical Constants</h2>
-            <div class="constants-grid">
-                <div class="constant-item">
-                    <label>Number of Stations (Right)</label>
-                    <input type="number" id="numStations" value="2" min="0" max="10" step="1">
-                </div>
-                <div class="constant-item">
-                    <label>Number of Stations (Left)</label>
-                    <input type="number" id="numStationsLeft" value="0" min="0" max="10" step="1">
-                </div>
-                <div class="constant-item">
-                    <label>Simulation Length (years)</label>
-                    <input type="number" id="simulationLength" value="10" min="1" max="100" step="1">
-                </div>
-                <div class="constant-item">
-                    <label>Start Date (optional)</label>
-                    <input type="date" id="startDate">
-                </div>
-                <div class="constant-item">
-                    <label>Water Density (SG)</label>
-                    <input type="number" id="waterDensity" value="1.04" step="0.01">
-                </div>
-                <div class="constant-item">
-                    <label>Water Viscosity (cP)</label>
-                    <input type="number" id="waterViscosity" value="0.4" step="0.01">
-                </div>
-                <div class="constant-item">
-                    <label>Water Compressibility (1/bar)</label>
-                    <input type="number" id="waterCompressibility" value="4.5e-5" step="1e-6">
-                </div>
-                <div class="constant-item">
-                    <label>Rock Compressibility (1/bar)</label>
-                    <input type="number" id="rockCompressibility" value="1e-5" step="1e-6">
-                </div>
-                <div class="constant-item">
-                    <label>Reservoir Temperature (°C)</label>
-                    <input type="number" id="reservoirTemp" value="80" step="5">
-                </div>
-                <div class="constant-item">
-                    <label>Aquifer Overpressure (bar)</label>
-                    <input type="number" id="aquiferOverpressure" value="0" step="1">
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Custom Times Modal -->
     <div id="customTimesModal" class="modal custom-times-modal">
         <div class="modal-content">
@@ -602,6 +527,14 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script>
+        // ===========================================
+        // CONFIGURATION
+        // ===========================================
+        const INLINE_INPUT_MAX_HEIGHT = getComputedStyle(document.documentElement)
+            .getPropertyValue('--inline-input-max-height');
+        const CALCULATION_MAX_HEIGHT = getComputedStyle(document.documentElement)
+            .getPropertyValue('--calculation-max-height');
+        
         // ===========================================
         // CENTRAL STATE MANAGER
         // ===========================================
@@ -1072,6 +1005,8 @@
         let timeLinePlugin = null;
         let importProjects = [];
         let selectedExportProjects = new Set();
+        let currentInlineInputType = null;
+        let currentInlineInputData = null;
         
         // Debounce timer for calculation updates
         let calculationUpdateTimeout = null;
@@ -1113,8 +1048,21 @@
             }
         };
         
-        // Register the plugin
-        Chart.register(verticalLinePlugin);
+        // Background color plugin for Chart.js
+        const customCanvasBackgroundColor = {
+            id: 'customCanvasBackgroundColor',
+            beforeDraw: (chart, args, options) => {
+                const {ctx} = chart;
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = options.color || '#ffffff';
+                ctx.fillRect(0, 0, chart.width, chart.height);
+                ctx.restore();
+            }
+        };
+        
+        // Register the plugins
+        Chart.register(verticalLinePlugin, customCanvasBackgroundColor);
         
         // ===========================================
         // NOTIFICATION SYSTEM
@@ -1243,11 +1191,9 @@
                     updateSimulation();
                     break;
                 case 'constantsUpdated':
-                    // Update virgin pressure display if constants modal is open
-                    if (document.getElementById('constantsModal').style.display === 'block') {
+                    // Update virgin pressure display if inline input is open
+                    if (currentInlineInputType) {
                         updateOfftakeVirginPressure();
-                    }
-                    if (document.getElementById('stationModal').style.display === 'block') {
                         updateStationVirginPressure();
                     }
                     updatePressureHistory();
@@ -1270,6 +1216,510 @@
                     break;
             }
         });
+        
+        // ===========================================
+        // INLINE INPUT FUNCTIONS
+        // ===========================================
+        
+        function showInlineInput(type, data = null) {
+            const container = document.getElementById('inlineInputContainer');
+            const content = document.getElementById('inlineInputContent');
+            
+            // If showing the same type that's already open, close it
+            if (currentInlineInputType === type && 
+                type !== 'station' || 
+                (type === 'station' && currentInlineInputData === data)) {
+                closeInlineInput();
+                return;
+            }
+            
+            // Store current type and data
+            currentInlineInputType = type;
+            currentInlineInputData = data;
+            
+            // Clear existing content
+            content.innerHTML = '';
+            
+            // Create content based on type
+            let html = '';
+            
+            if (type === 'constants') {
+                html = createConstantsInputContent();
+            } else if (type === 'offtake') {
+                html = createOfftakeInputContent();
+            } else if (type === 'station' && data !== null) {
+                html = createStationInputContent(data);
+            }
+            
+            content.innerHTML = html;
+            
+            // Add active class to trigger animation
+            container.classList.add('active');
+            
+            // Initialize event listeners for the new content
+            if (type === 'offtake') {
+                setupOfftakeEventListeners();
+                loadPressureTable();
+                updateOfftakeVirginPressure();
+                // Delay chart initialization to ensure DOM is ready
+                setTimeout(() => {
+                    updatePressureChart();
+                }, 50);
+            } else if (type === 'station' && data !== null) {
+                setupStationEventListeners();
+                updateStationVirginPressure();
+            } else if (type === 'constants') {
+                setupConstantsEventListeners();
+            }
+        }
+        
+        function closeInlineInput() {
+            const container = document.getElementById('inlineInputContainer');
+            
+            // Remove active class to trigger animation
+            container.classList.remove('active');
+            
+            // Clear type and data after transition
+            setTimeout(() => {
+                currentInlineInputType = null;
+                currentInlineInputData = null;
+            }, 400);
+        }
+        
+        function createConstantsInputContent() {
+            const project = appState.getCurrentProject();
+            if (!project) return '';
+            
+            const config = project.config;
+            
+            return `
+                <div class="inline-input-header">
+                    <h3 class="inline-input-title">Physical Constants</h3>
+                    <button class="inline-input-close" onclick="closeInlineInput()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="constants-grid">
+                    <div class="constant-item">
+                        <label>Number of Stations (Right)</label>
+                        <input type="number" id="numStations" value="${config.numStations}" min="0" max="10" step="1">
+                    </div>
+                    <div class="constant-item">
+                        <label>Number of Stations (Left)</label>
+                        <input type="number" id="numStationsLeft" value="${config.numStationsLeft || 0}" min="0" max="10" step="1">
+                    </div>
+                    <div class="constant-item">
+                        <label>Simulation Length (years)</label>
+                        <input type="number" id="simulationLength" value="${config.simulationLength}" min="1" max="100" step="1">
+                    </div>
+                    <div class="constant-item">
+                        <label>Start Date (optional)</label>
+                        <input type="date" id="startDate" value="${config.startDate || ''}">
+                    </div>
+                    <div class="constant-item">
+                        <label>Water Density (SG)</label>
+                        <input type="number" id="waterDensity" value="${config.waterDensity}" step="0.01">
+                    </div>
+                    <div class="constant-item">
+                        <label>Water Viscosity (cP)</label>
+                        <input type="number" id="waterViscosity" value="${config.waterViscosity}" step="0.01">
+                    </div>
+                    <div class="constant-item">
+                        <label>Water Compressibility (1/bar)</label>
+                        <input type="number" id="waterCompressibility" value="${config.waterCompressibility}" step="1e-6">
+                    </div>
+                    <div class="constant-item">
+                        <label>Rock Compressibility (1/bar)</label>
+                        <input type="number" id="rockCompressibility" value="${config.rockCompressibility}" step="1e-6">
+                    </div>
+                    <div class="constant-item">
+                        <label>Reservoir Temperature (°C)</label>
+                        <input type="number" id="reservoirTemp" value="${config.reservoirTemp}" step="5">
+                    </div>
+                    <div class="constant-item">
+                        <label>Aquifer Overpressure (bar)</label>
+                        <input type="number" id="aquiferOverpressure" value="${config.aquiferOverpressure || 0}" step="1">
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createOfftakeInputContent() {
+            const project = appState.getCurrentProject();
+            if (!project) return '';
+            
+            const config = project.config;
+            const offtakeStation = config.stations ? config.stations.find(s => s.distance === 0) : null;
+            const customName = offtakeStation ? offtakeStation.customName || '' : '';
+            
+            return `
+                <div class="inline-input-header">
+                    <h3 class="inline-input-title">Offtake Configuration</h3>
+                    <button class="inline-input-close" onclick="closeInlineInput()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="input-field" style="margin-bottom: 20px;">
+                    <label>Station Name</label>
+                    <input type="text" id="offtakeCustomName" placeholder="Default: Offtake" value="${customName}">
+                </div>
+                <div class="input-field" style="margin-bottom: 20px;">
+                    <label>Offtake Depth (m tvdss)</label>
+                    <input type="number" id="offtakeDepth" value="${config.offtakeDepth}" step="10">
+                    <div class="virgin-pressure-hint" id="offtakeVirginPressure">Virgin pressure: -- bar</div>
+                </div>
+                <div class="interpolation-toggle">
+                    <label>Use Smooth Interpolation:</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="useSplineInterpolation" ${config.useSplineInterpolation ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span style="color: #666; font-size: 0.9em;">(Cubic spline vs linear)</span>
+                </div>
+                <h3>Pressure Schedule</h3>
+                <div class="pressure-table-container">
+                    <div class="pressure-table-hint">
+                        <i class="fas fa-info-circle"></i> You can paste data directly from Excel or CSV
+                    </div>
+                    <table class="pressure-table" id="pressureTable">
+                        <thead>
+                            <tr>
+                                <th>Time (years)</th>
+                                <th>Pressure (bar)</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="pressureTableBody">
+                            <!-- Rows will be added here -->
+                        </tbody>
+                    </table>
+                    <button class="add-row-btn" onclick="addPressureRow()">
+                        <i class="fas fa-plus"></i> Add Row
+                    </button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="pressureChart"></canvas>
+                </div>
+            `;
+        }
+        
+        function createStationInputContent(stationIndex) {
+            const project = appState.getCurrentProject();
+            if (!project || !project.config.stations) return '';
+            
+            const station = project.config.stations[stationIndex];
+            
+            // Find the previous station based on the station's side
+            let prevStation = null;
+            let distanceToPrev = station.distance;
+            
+            if (station.isLeft) {
+                // For left stations, find the station with next smaller distance (closer to offtake)
+                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = leftStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    prevStation = leftStations[stationPos - 1];
+                    distanceToPrev = station.distance - prevStation.distance;
+                }
+            } else {
+                // For right stations, find the station with next smaller distance
+                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = rightStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    prevStation = rightStations[stationPos - 1];
+                    distanceToPrev = station.distance - prevStation.distance;
+                }
+            }
+            
+            const distanceLabel = prevStation ? `Distance to ${prevStation.name} (km)` : 'Distance to Offtake (km)';
+            
+            return `
+                <div class="inline-input-header">
+                    <h3 class="inline-input-title">${station.name} Parameters</h3>
+                    <button class="inline-input-close" onclick="closeInlineInput()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Station Name</label>
+                        <input type="text" id="modalCustomName" placeholder="Default: Station X" value="${station.customName || ''}">
+                    </div>
+                    <div class="input-field">
+                        <label>${distanceLabel}</label>
+                        <input type="number" id="modalDistance" step="1" min="0" value="${distanceToPrev}">
+                    </div>
+                    <div class="input-field">
+                        <label>Permeability (mD)</label>
+                        <input type="number" id="modalPermeability" step="10" min="0" value="${station.permeability}">
+                    </div>
+                    <div class="input-field">
+                        <label>Average Net/Gross</label>
+                        <input type="number" id="modalNTG" step="0.01" min="0" max="1" value="${station.ntg}">
+                    </div>
+                    <div class="input-field">
+                        <label>Aquifer Width (km)</label>
+                        <input type="number" id="modalWidth" step="0.1" value="${station.width}">
+                    </div>
+                    <div class="input-field">
+                        <label>Aquifer Height (m)</label>
+                        <input type="number" id="modalHeight" step="1" value="${station.height}">
+                    </div>
+                    <div class="input-field">
+                        <label>Porosity</label>
+                        <input type="number" id="modalPorosity" step="0.01" min="0" max="1" value="${station.porosity}">
+                    </div>
+                    <div class="input-field">
+                        <label>Measurement Depth (m tvdss)</label>
+                        <input type="number" id="modalDepth" step="10" value="${station.depth}">
+                        <div class="virgin-pressure-hint" id="stationVirginPressure">Virgin pressure: -- bar</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function setupConstantsEventListeners() {
+            document.getElementById('numStations').addEventListener('input', function() {
+                const num = parseInt(this.value);
+                appState.updateNumStations(num);
+                updateStations();
+            });
+            
+            document.getElementById('numStationsLeft').addEventListener('input', function() {
+                const num = parseInt(this.value);
+                appState.updateNumStationsLeft(num);
+                updateStations();
+            });
+            
+            document.getElementById('simulationLength').addEventListener('input', function() {
+                const length = parseFloat(this.value);
+                document.getElementById('timeSlider').max = length;
+                appState.updateConstants({ simulationLength: length });
+                updateSimulation();
+            });
+            
+            document.getElementById('startDate').addEventListener('input', function() {
+                appState.updateConstants({ startDate: this.value });
+                updateSimulation();
+            });
+            
+            document.getElementById('waterDensity').addEventListener('input', function() {
+                appState.updateConstants({ waterDensity: parseFloat(this.value) });
+                updateSimulation();
+            });
+            
+            document.getElementById('waterViscosity').addEventListener('input', function() {
+                appState.updateConstants({ waterViscosity: parseFloat(this.value) });
+                updateSimulation();
+            });
+            
+            document.getElementById('waterCompressibility').addEventListener('input', function() {
+                appState.updateConstants({ waterCompressibility: parseFloat(this.value) });
+                updateSimulation();
+            });
+            
+            document.getElementById('rockCompressibility').addEventListener('input', function() {
+                appState.updateConstants({ rockCompressibility: parseFloat(this.value) });
+                updateSimulation();
+            });
+            
+            document.getElementById('reservoirTemp').addEventListener('input', function() {
+                appState.updateConstants({ reservoirTemp: parseFloat(this.value) });
+                updateSimulation();
+            });
+            
+            document.getElementById('aquiferOverpressure').addEventListener('input', function() {
+                appState.updateConstants({ aquiferOverpressure: parseFloat(this.value) });
+                updateSimulation();
+            });
+        }
+        
+        function setupOfftakeEventListeners() {
+            document.getElementById('offtakeCustomName').addEventListener('input', function() {
+                const stations = appState.getCurrentProject().config.stations;
+                if (stations.length > 0) {
+                    // Find the offtake station (the one with distance 0)
+                    const offtakeIndex = stations.findIndex(s => s.distance === 0);
+                    if (offtakeIndex !== -1) {
+                        appState.updateStation(offtakeIndex, {
+                            customName: this.value,
+                            name: this.value || 'Offtake'
+                        });
+                    }
+                }
+            });
+            
+            document.getElementById('offtakeDepth').addEventListener('input', function() {
+                appState.updateOfftakeSettings({ offtakeDepth: parseFloat(this.value) });
+                updateOfftakeVirginPressure();
+            });
+            
+            document.getElementById('useSplineInterpolation').addEventListener('change', function() {
+                appState.updateOfftakeSettings({ useSplineInterpolation: this.checked });
+            });
+            
+            // Add paste event listener for pressure table
+            const pressureTable = document.getElementById('pressureTable');
+            if (pressureTable) {
+                pressureTable.addEventListener('paste', handlePressureTablePaste);
+            }
+        }
+        
+        function setupStationEventListeners() {
+            currentStationIndex = currentInlineInputData;
+            
+            document.getElementById('modalCustomName').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalDistance').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalPermeability').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalHeight').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalWidth').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalNTG').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalPorosity').addEventListener('input', updateStationFromInline);
+            document.getElementById('modalDepth').addEventListener('input', function() {
+                updateStationFromInline();
+                updateStationVirginPressure();
+            });
+        }
+        
+        function updateStationFromInline() {
+            if (currentStationIndex === null) return;
+            
+            const project = appState.getCurrentProject();
+            if (!project || !project.config.stations) return;
+            
+            const station = project.config.stations[currentStationIndex];
+            const customName = document.getElementById('modalCustomName').value;
+            const inputDistance = parseFloat(document.getElementById('modalDistance').value);
+            
+            // Calculate absolute distance from offtake based on the input distance to previous station
+            let newAbsoluteDistance = inputDistance;
+            
+            if (station.isLeft) {
+                // For left stations, find the station with next smaller distance
+                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = leftStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    const prevStation = leftStations[stationPos - 1];
+                    newAbsoluteDistance = prevStation.distance + inputDistance;
+                }
+            } else {
+                // For right stations, find the station with next smaller distance
+                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
+                    .sort((a, b) => a.distance - b.distance);
+                const stationPos = rightStations.findIndex(s => s === station);
+                if (stationPos > 0) {
+                    const prevStation = rightStations[stationPos - 1];
+                    newAbsoluteDistance = prevStation.distance + inputDistance;
+                }
+            }
+            
+            // Determine the default name based on position
+            let defaultName;
+            if (station.isLeft) {
+                const leftStations = project.config.stations.filter(s => s.isLeft).sort((a, b) => a.distance - b.distance);
+                const positionFromOfftake = leftStations.findIndex(s => s === station) + 1;
+                defaultName = `Station L${positionFromOfftake}`;
+            } else if (station.distance > 0) {
+                const rightStations = project.config.stations.filter(s => !s.isLeft && s.distance > 0).sort((a, b) => a.distance - b.distance);
+                const positionFromOfftake = rightStations.findIndex(s => s === station) + 1;
+                defaultName = `Station R${positionFromOfftake}`;
+            } else {
+                defaultName = 'Offtake';
+            }
+            
+            const updates = {
+                customName: customName,
+                name: customName || defaultName,
+                distance: newAbsoluteDistance,
+                isLeft: station.isLeft,
+                height: parseFloat(document.getElementById('modalHeight').value),
+                width: parseFloat(document.getElementById('modalWidth').value),
+                ntg: parseFloat(document.getElementById('modalNTG').value),
+                porosity: parseFloat(document.getElementById('modalPorosity').value),
+                permeability: parseFloat(document.getElementById('modalPermeability').value),
+                depth: parseFloat(document.getElementById('modalDepth').value)
+            };
+            
+            // Update this station
+            appState.updateStation(currentStationIndex, updates);
+            
+            // Update positions of dependent stations (stations further from offtake)
+            const allStations = [...project.config.stations];
+            const distanceChange = newAbsoluteDistance - station.distance;
+            
+            if (Math.abs(distanceChange) > 0.001) {
+                if (station.isLeft) {
+                    // Update all left stations with greater distance
+                    allStations.forEach((s, idx) => {
+                        if (s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
+                            appState.updateStation(idx, { distance: s.distance + distanceChange });
+                        }
+                    });
+                } else {
+                    // Update all right stations with greater distance
+                    allStations.forEach((s, idx) => {
+                        if (!s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
+                            appState.updateStation(idx, { distance: s.distance + distanceChange });
+                        }
+                    });
+                }
+            }
+            
+            // Update chart dataset label if chart exists
+            if (stationPressureChart && stationPressureChart.data.datasets[currentStationIndex]) {
+                stationPressureChart.data.datasets[currentStationIndex].label = updates.name;
+                stationPressureChart.update();
+            }
+            
+            renderStations();
+            updateSimulation();
+        }
+        
+        function handlePressureTablePaste(e) {
+            e.preventDefault();
+            
+            const clipboardData = e.clipboardData || window.clipboardData;
+            const pastedData = clipboardData.getData('text');
+            
+            // Parse the pasted data
+            const rows = pastedData.trim().split('\n');
+            const data = [];
+            
+            rows.forEach(row => {
+                const cells = row.split(/\t|,|;|\s+/); // Support tab, comma, semicolon, or space delimited
+                if (cells.length >= 2) {
+                    const time = parseFloat(cells[0]);
+                    const pressure = parseFloat(cells[1]);
+                    if (!isNaN(time) && !isNaN(pressure) && time > 0) {
+                        data.push({ time, pressure });
+                    }
+                }
+            });
+            
+            if (data.length > 0) {
+                // Clear existing rows (except the first hydrostatic row)
+                const tbody = document.getElementById('pressureTableBody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.slice(1).forEach(row => row.remove());
+                
+                // Add new rows
+                data.forEach(entry => {
+                    addPressureRowElement(entry.time, entry.pressure);
+                });
+                
+                // Update the pressure data
+                updatePressureTableData();
+                
+                showNotification(
+                    `Pasted ${data.length} pressure entries`,
+                    'success',
+                    3000
+                );
+            }
+        }
         
         // ===========================================
         // UI EVENT HANDLERS (NOW USE STATE MANAGER)
@@ -1320,94 +1770,6 @@
             
             updateSimulation();
         });
-        
-        // Offtake modal inputs
-        document.getElementById('offtakeCustomName').addEventListener('input', function() {
-            const stations = appState.getCurrentProject().config.stations;
-            if (stations.length > 0) {
-                // Find the offtake station (the one with distance 0)
-                const offtakeIndex = stations.findIndex(s => s.distance === 0);
-                if (offtakeIndex !== -1) {
-                    appState.updateStation(offtakeIndex, {
-                        customName: this.value,
-                        name: this.value || 'Offtake'
-                    });
-                }
-            }
-        });
-        
-        document.getElementById('offtakeDepth').addEventListener('input', function() {
-            appState.updateOfftakeSettings({ offtakeDepth: parseFloat(this.value) });
-        });
-        
-        document.getElementById('useSplineInterpolation').addEventListener('change', function() {
-            appState.updateOfftakeSettings({ useSplineInterpolation: this.checked });
-        });
-        
-        // Constants modal inputs
-        document.getElementById('numStations').addEventListener('input', function() {
-            const num = parseInt(this.value);
-            appState.updateNumStations(num);
-            updateStations();
-        });
-        
-        document.getElementById('numStationsLeft').addEventListener('input', function() {
-            const num = parseInt(this.value);
-            appState.updateNumStationsLeft(num);
-            updateStations();
-        });
-        
-        document.getElementById('simulationLength').addEventListener('input', function() {
-            const length = parseFloat(this.value);
-            document.getElementById('timeSlider').max = length;
-            appState.updateConstants({ simulationLength: length });
-            updateSimulation();
-        });
-        
-        document.getElementById('startDate').addEventListener('input', function() {
-            appState.updateConstants({ startDate: this.value });
-            updateSimulation();
-        });
-        
-        document.getElementById('waterDensity').addEventListener('input', function() {
-            appState.updateConstants({ waterDensity: parseFloat(this.value) });
-            updateSimulation();
-        });
-        
-        document.getElementById('waterViscosity').addEventListener('input', function() {
-            appState.updateConstants({ waterViscosity: parseFloat(this.value) });
-            updateSimulation();
-        });
-        
-        document.getElementById('waterCompressibility').addEventListener('input', function() {
-            appState.updateConstants({ waterCompressibility: parseFloat(this.value) });
-            updateSimulation();
-        });
-        
-        document.getElementById('rockCompressibility').addEventListener('input', function() {
-            appState.updateConstants({ rockCompressibility: parseFloat(this.value) });
-            updateSimulation();
-        });
-        
-        document.getElementById('reservoirTemp').addEventListener('input', function() {
-            appState.updateConstants({ reservoirTemp: parseFloat(this.value) });
-            updateSimulation();
-        });
-        
-        document.getElementById('aquiferOverpressure').addEventListener('input', function() {
-            appState.updateConstants({ aquiferOverpressure: parseFloat(this.value) });
-            updateSimulation();
-        });
-        
-        // Station modal inputs
-        document.getElementById('modalCustomName').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalDistance').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalPermeability').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalHeight').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalWidth').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalNTG').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalPorosity').addEventListener('input', updateStationFromModal);
-        document.getElementById('modalDepth').addEventListener('input', updateStationFromModal);
         
         // ===========================================
         // PHYSICS EQUATIONS (UPDATED WITH OVERPRESSURE)
@@ -1529,36 +1891,32 @@
         
         // Update virgin pressure displays
         function updateOfftakeVirginPressure() {
-            const depth = parseFloat(document.getElementById('offtakeDepth').value);
+            const depthInput = document.getElementById('offtakeDepth');
+            if (!depthInput) return; // Guard against missing elements
+            
+            const depth = parseFloat(depthInput.value);
             const virginPressure = calculateHydrostaticPressure(depth);
-            document.getElementById('offtakeVirginPressure').textContent = 
-                `Virgin pressure: ${virginPressure.toFixed(1)} bar`;
+            const virginPressureElement = document.getElementById('offtakeVirginPressure');
+            if (virginPressureElement) {
+                virginPressureElement.textContent = `Virgin pressure: ${virginPressure.toFixed(1)} bar`;
+            }
         }
         
         function updateStationVirginPressure() {
-            const depth = parseFloat(document.getElementById('modalDepth').value);
+            const depthInput = document.getElementById('modalDepth');
+            if (!depthInput) return; // Guard against missing elements
+            
+            const depth = parseFloat(depthInput.value);
             const virginPressure = calculateHydrostaticPressure(depth);
-            document.getElementById('stationVirginPressure').textContent = 
-                `Virgin pressure: ${virginPressure.toFixed(1)} bar`;
+            const virginPressureElement = document.getElementById('stationVirginPressure');
+            if (virginPressureElement) {
+                virginPressureElement.textContent = `Virgin pressure: ${virginPressure.toFixed(1)} bar`;
+            }
         }
         
         // Load project to UI
         function loadProjectToUI(project) {
             const config = project.config;
-            
-            // Load constants
-            document.getElementById('simulationLength').value = config.simulationLength || 10;
-            document.getElementById('startDate').value = config.startDate || '';
-            document.getElementById('waterDensity').value = config.waterDensity || 1.04;
-            document.getElementById('waterViscosity').value = config.waterViscosity || 0.4;
-            document.getElementById('waterCompressibility').value = config.waterCompressibility || 4.5e-5;
-            document.getElementById('rockCompressibility').value = config.rockCompressibility || 1e-5;
-            document.getElementById('reservoirTemp').value = config.reservoirTemp || 80;
-            document.getElementById('aquiferOverpressure').value = config.aquiferOverpressure || 0;
-            document.getElementById('numStations').value = config.numStations || 2;
-            document.getElementById('numStationsLeft').value = config.numStationsLeft || 0;
-            document.getElementById('useSplineInterpolation').checked = config.useSplineInterpolation !== false;
-            document.getElementById('offtakeDepth').value = config.offtakeDepth || 2000;
             
             // Update header
             updateHeader();
@@ -1566,27 +1924,18 @@
             // Update virgin pressure display
             updateOfftakeVirginPressure();
             
-            // Load offtake custom name
-            if (config.stations && config.stations.length > 0) {
-                const offtakeStation = config.stations.find(s => s.distance === 0);
-                if (offtakeStation) {
-                    document.getElementById('offtakeCustomName').value = offtakeStation.customName || '';
-                }
-            }
-            
-            // Load pressure data UI with new table format
-            loadPressureTable();
-            
             // Load time slider
             const maxTime = parseFloat(config.simulationLength || 10);
             const currentTime = Math.min(appState.getAppSettings().currentTime, maxTime);
             document.getElementById('timeSlider').max = maxTime;
             document.getElementById('timeSlider').value = currentTime;
             
+            // Close any open inline inputs
+            closeInlineInput();
+            
             // Update UI
             updateProjectNavigation();
             updateStations();
-            updatePressureChart();
             initializeStationChart();
             updateSimulation();
             
@@ -2846,7 +3195,7 @@
                 stationWrapper.style.left = `${left}%`;
                 stationWrapper.style.top = '50%';
                 stationWrapper.style.transform = 'translate(-50%, -50%)';
-                stationWrapper.onclick = () => showStationModal(index);
+                stationWrapper.onclick = () => showStationInput(index);
                 stationWrapper.onmouseenter = function() {
                     const stationIndex = index; // Capture index in closure
                     
@@ -2963,7 +3312,7 @@
             });
         }
         
-        function showStationModal(index) {
+        function showStationInput(index) {
             const project = appState.getCurrentProject();
             if (!project || !project.config.stations) return;
             
@@ -2971,171 +3320,16 @@
             
             // If it's the offtake station
             if (station.distance === 0) {
-                document.getElementById('offtakeCustomName').value = station.customName || '';
-                updateOfftakeVirginPressure();
-                showOfftakeModal();
+                showInlineInput('offtake');
                 return;
             }
             
-            currentStationIndex = index;
-            
-            // Find the previous station based on the station's side
-            let prevStation = null;
-            let distanceToPrev = station.distance;
-            
-            if (station.isLeft) {
-                // For left stations, find the station with next smaller distance (closer to offtake)
-                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = leftStations.findIndex(s => s === station);
-                if (stationPos > 0) {
-                    prevStation = leftStations[stationPos - 1];
-                    distanceToPrev = station.distance - prevStation.distance;
-                }
-            } else {
-                // For right stations, find the station with next smaller distance
-                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = rightStations.findIndex(s => s === station);
-                if (stationPos > 0) {
-                    prevStation = rightStations[stationPos - 1];
-                    distanceToPrev = station.distance - prevStation.distance;
-                }
-            }
-            
-            // Update the distance label dynamically
-            const distanceInput = document.getElementById('modalDistance');
-            const inputField = distanceInput.closest('.input-field');
-            const label = inputField.querySelector('label');
-            if (label) {
-                if (prevStation) {
-                    label.textContent = `Distance to ${prevStation.name} (km)`;
-                } else {
-                    label.textContent = 'Distance to Offtake (km)';
-                }
-            }
-            
-            document.getElementById('stationModalTitle').textContent = `${station.name} Parameters`;
-            document.getElementById('modalCustomName').value = station.customName || '';
-            document.getElementById('modalDistance').value = distanceToPrev;
-            document.getElementById('modalHeight').value = station.height;
-            document.getElementById('modalWidth').value = station.width;
-            document.getElementById('modalNTG').value = station.ntg;
-            document.getElementById('modalPorosity').value = station.porosity;
-            document.getElementById('modalPermeability').value = station.permeability;
-            document.getElementById('modalDepth').value = station.depth;
-            
-            updateStationVirginPressure();
-            
-            document.getElementById('stationModal').style.display = 'block';
-        }
-        
-        function updateStationFromModal() {
-            if (currentStationIndex === null) return;
-            
-            const project = appState.getCurrentProject();
-            if (!project || !project.config.stations) return;
-            
-            const station = project.config.stations[currentStationIndex];
-            const customName = document.getElementById('modalCustomName').value;
-            const inputDistance = parseFloat(document.getElementById('modalDistance').value);
-            
-            // Calculate absolute distance from offtake based on the input distance to previous station
-            let newAbsoluteDistance = inputDistance;
-            
-            if (station.isLeft) {
-                // For left stations, find the station with next smaller distance
-                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = leftStations.findIndex(s => s === station);
-                if (stationPos > 0) {
-                    const prevStation = leftStations[stationPos - 1];
-                    newAbsoluteDistance = prevStation.distance + inputDistance;
-                }
-            } else {
-                // For right stations, find the station with next smaller distance
-                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = rightStations.findIndex(s => s === station);
-                if (stationPos > 0) {
-                    const prevStation = rightStations[stationPos - 1];
-                    newAbsoluteDistance = prevStation.distance + inputDistance;
-                }
-            }
-            
-            // Determine the default name based on position
-            let defaultName;
-            if (station.isLeft) {
-                const leftStations = project.config.stations.filter(s => s.isLeft).sort((a, b) => a.distance - b.distance);
-                const positionFromOfftake = leftStations.findIndex(s => s === station) + 1;
-                defaultName = `Station L${positionFromOfftake}`;
-            } else if (station.distance > 0) {
-                const rightStations = project.config.stations.filter(s => !s.isLeft && s.distance > 0).sort((a, b) => a.distance - b.distance);
-                const positionFromOfftake = rightStations.findIndex(s => s === station) + 1;
-                defaultName = `Station R${positionFromOfftake}`;
-            } else {
-                defaultName = 'Offtake';
-            }
-            
-            const updates = {
-                customName: customName,
-                name: customName || defaultName,
-                distance: newAbsoluteDistance,
-                isLeft: station.isLeft,
-                height: parseFloat(document.getElementById('modalHeight').value),
-                width: parseFloat(document.getElementById('modalWidth').value),
-                ntg: parseFloat(document.getElementById('modalNTG').value),
-                porosity: parseFloat(document.getElementById('modalPorosity').value),
-                permeability: parseFloat(document.getElementById('modalPermeability').value),
-                depth: parseFloat(document.getElementById('modalDepth').value)
-            };
-            
-            // Update this station
-            appState.updateStation(currentStationIndex, updates);
-            
-            // Update positions of dependent stations (stations further from offtake)
-            const allStations = [...project.config.stations];
-            const distanceChange = newAbsoluteDistance - station.distance;
-            
-            if (Math.abs(distanceChange) > 0.001) {
-                if (station.isLeft) {
-                    // Update all left stations with greater distance
-                    allStations.forEach((s, idx) => {
-                        if (s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
-                            appState.updateStation(idx, { distance: s.distance + distanceChange });
-                        }
-                    });
-                } else {
-                    // Update all right stations with greater distance
-                    allStations.forEach((s, idx) => {
-                        if (!s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
-                            appState.updateStation(idx, { distance: s.distance + distanceChange });
-                        }
-                    });
-                }
-            }
-            
-            // Update chart dataset label if chart exists
-            if (stationPressureChart && stationPressureChart.data.datasets[currentStationIndex]) {
-                stationPressureChart.data.datasets[currentStationIndex].label = updates.name;
-                stationPressureChart.update();
-            }
-            
-            renderStations();
-            updateSimulation();
+            showInlineInput('station', index);
         }
         
         // ===========================================
         // MODAL FUNCTIONS
         // ===========================================
-        
-        function showOfftakeModal() {
-            document.getElementById('offtakeModal').style.display = 'block';
-        }
-        
-        function showConstantsModal() {
-            document.getElementById('constantsModal').style.display = 'block';
-        }
         
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
@@ -3170,6 +3364,8 @@
             if (!project) return;
             
             const tbody = document.getElementById('pressureTableBody');
+            if (!tbody) return; // Guard against missing elements
+            
             tbody.innerHTML = '';
             
             // Always add the first row (hydrostatic at t=0)
@@ -3195,6 +3391,8 @@
         // Create and add a pressure row element
         function addPressureRowElement(time = '', pressure = '', isFirst = false) {
             const tbody = document.getElementById('pressureTableBody');
+            if (!tbody) return; // Guard against missing elements
+            
             const row = document.createElement('tr');
             
             row.innerHTML = `
@@ -3219,6 +3417,8 @@
             if (!project) return;
             
             const tbody = document.getElementById('pressureTableBody');
+            if (!tbody) return; // Guard against missing elements
+            
             const rows = tbody.querySelectorAll('tr');
             const pressureData = [];
             
@@ -3236,56 +3436,6 @@
             
             appState.updatePressureData(pressureData);
         }
-        
-        // Handle paste event on the pressure table
-        document.addEventListener('DOMContentLoaded', function() {
-            const pressureTable = document.getElementById('pressureTable');
-            
-            if (pressureTable) {
-                pressureTable.addEventListener('paste', function(e) {
-                    e.preventDefault();
-                    
-                    const clipboardData = e.clipboardData || window.clipboardData;
-                    const pastedData = clipboardData.getData('text');
-                    
-                    // Parse the pasted data
-                    const rows = pastedData.trim().split('\n');
-                    const data = [];
-                    
-                    rows.forEach(row => {
-                        const cells = row.split(/\t|,|;|\s+/); // Support tab, comma, semicolon, or space delimited
-                        if (cells.length >= 2) {
-                            const time = parseFloat(cells[0]);
-                            const pressure = parseFloat(cells[1]);
-                            if (!isNaN(time) && !isNaN(pressure) && time > 0) {
-                                data.push({ time, pressure });
-                            }
-                        }
-                    });
-                    
-                    if (data.length > 0) {
-                        // Clear existing rows (except the first hydrostatic row)
-                        const tbody = document.getElementById('pressureTableBody');
-                        const rows = Array.from(tbody.querySelectorAll('tr'));
-                        rows.slice(1).forEach(row => row.remove());
-                        
-                        // Add new rows
-                        data.forEach(entry => {
-                            addPressureRowElement(entry.time, entry.pressure);
-                        });
-                        
-                        // Update the pressure data
-                        updatePressureTableData();
-                        
-                        showNotification(
-                            `Pasted ${data.length} pressure entries`,
-                            'success',
-                            3000
-                        );
-                    }
-                });
-            }
-        });
         
         // Cubic spline interpolation
         function cubicSplineInterpolate(points, x) {
@@ -3397,11 +3547,15 @@
         
         // Update pressure chart
         function updatePressureChart() {
-            const ctx = document.getElementById('pressureChart').getContext('2d');
+            const canvas = document.getElementById('pressureChart');
+            if (!canvas) return; // Guard against missing elements
+            
+            const ctx = canvas.getContext('2d');
             const project = appState.getCurrentProject();
             
             if (pressureChart) {
                 pressureChart.destroy();
+                pressureChart = null;
             }
             
             if (!project || !project.config.pressureData) return;
@@ -3446,6 +3600,9 @@
                         title: {
                             display: true,
                             text: 'Offtake Pressure Schedule'
+                        },
+                        customCanvasBackgroundColor: {
+                            color: 'white',
                         }
                     },
                     scales: {
@@ -3454,12 +3611,18 @@
                             title: {
                                 display: true,
                                 text: 'Time (years)'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         },
                         y: {
                             title: {
                                 display: true,
                                 text: 'Pressure (bar)'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         }
                     }
@@ -3533,6 +3696,9 @@
                         },
                         verticalLine: {
                             x: 0
+                        },
+                        customCanvasBackgroundColor: {
+                            color: 'white',
                         }
                     },
                     scales: {
@@ -3541,12 +3707,18 @@
                             title: {
                                 display: true,
                                 text: 'Time (years)'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         },
                         y: {
                             title: {
                                 display: true,
                                 text: 'Pressure (bar)'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         }
                     }
@@ -3924,4 +4096,4 @@
         };
     </script>
 </body>
-</html>s
+</html>
