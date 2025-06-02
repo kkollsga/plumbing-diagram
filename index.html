@@ -11,28 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* CSS Variables for theming */
-        :root {
-            /* Blue theme for inputs - more subtle */
-            --input-bg-color: #f7fbfe;
-            --input-border-color: #e1f0fa;
-            --input-scrollbar-thumb: #a8d4f0;
-            --input-scrollbar-thumb-hover: #7fc4f0;
-            
-            /* Purple theme for calculations - more subtle */
-            --calc-bg-color: #faf7fe;
-            --calc-border-color: #e8e1fa;
-            --calc-scrollbar-thumb: #d4a8f0;
-            --calc-scrollbar-thumb-hover: #b27ff0;
-            --calc-inner-bg: #f5f0fc;
-            
-            /* Max heights */
-            --inline-input-max-height: 700px;
-            --calculation-max-height: 1200px;
-            
-            /* Scrollbar dimensions */
-            --scrollbar-width: 8px;
-            --scrollbar-thumb-radius: 4px;
-        }
+        :root { --input-bg-color: #f7fbfe; --input-border-color: #e1f0fa; --input-scrollbar-thumb: #a8d4f0; --input-scrollbar-thumb-hover: #7fc4f0; --calc-bg-color: #faf7fe; --calc-border-color: #e8e1fa; --calc-scrollbar-thumb: #d4a8f0; --calc-scrollbar-thumb-hover: #b27ff0; --calc-inner-bg: #f5f0fc; --inline-input-max-height: 700px; --calculation-max-height: 1200px; --scrollbar-width: 8px; --scrollbar-thumb-radius: 4px; }
         
         /* Global & Body */
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -261,35 +240,12 @@
         input:checked + .toggle-slider:before { transform: translateX(26px); }
 
         /* Charts */
-        .chart-container { 
-            position: relative; 
-            height: 400px; 
-            margin-top: 20px; 
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
+        .chart-container { position: relative; height: 400px; margin-top: 20px; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         
         /* Chart Toggle */
-        .chart-toggle { 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            margin-top: 10px; 
-            padding: 10px 15px; 
-            background: #f8f9fa; 
-            border-radius: 6px; 
-            font-size: 0.9em;
-        }
-        .chart-toggle label { 
-            margin: 0; 
-            font-weight: normal; 
-            color: #555; 
-        }
-        .chart-toggle .toggle-switch { 
-            margin: 0 10px; 
-        }
+        .chart-toggle { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; font-size: 0.9em; }
+        .chart-toggle label { margin: 0; font-weight: normal; color: #555; }
+        .chart-toggle .toggle-switch { margin: 0 10px; }
 
         /* Tooltips */
         .tooltip { position: absolute; background: rgba(51, 51, 51, 0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.9em; white-space: nowrap; z-index: 1000; pointer-events: none; opacity: 0; transition: opacity 0.2s ease-in-out; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: translateX(-50%); }
@@ -298,14 +254,7 @@
 
         /* UI States & Debugging */
         .selected-element { outline: 3px solid #3498db; outline-offset: 2px; }
-        .debug-info { 
-            background: var(--calc-inner-bg); 
-            padding: 15px; 
-            border-radius: 6px; 
-            margin: 15px 0; 
-            font-size: 0.95em; 
-            border: 1px solid var(--calc-border-color);
-        }
+        .debug-info { background: var(--calc-inner-bg); padding: 15px; border-radius: 6px; margin: 15px 0; font-size: 0.95em; border: 1px solid var(--calc-border-color); }
         .debug-info .updating-indicator { color: #999; font-size: 0.9em; font-style: italic; margin-left: 10px; animation: fadeIn 0.3s ease; }
 
         /* Notifications */
@@ -609,13 +558,22 @@
                             this.state.appSettings.showDepletionChart = true;
                         }
                         
-                        // Ensure all projects have description field and aquiferOverpressure
+                        // Migrate old data format to new segmentDistance format
                         this.state.projects.forEach(project => {
                             if (project.description === undefined) {
                                 project.description = '';
                             }
                             if (project.config.aquiferOverpressure === undefined) {
                                 project.config.aquiferOverpressure = 0;
+                            }
+                            
+                            // Migrate station distances to segment distances
+                            if (project.config.stations && project.config.stations.length > 0) {
+                                const oldStation = project.config.stations[0];
+                                if (oldStation.distance !== undefined && oldStation.segmentDistance === undefined) {
+                                    // Need to migrate
+                                    this.migrateStationDistances(project.config.stations);
+                                }
                             }
                         });
                         
@@ -636,6 +594,40 @@
                 // Ensure at least one project exists
                 if (this.state.projects.length === 0) {
                     this.createDefaultProject();
+                }
+            }
+            
+            // Migrate station distances from absolute to segment
+            migrateStationDistances(stations) {
+                // First sort stations by their old distance values
+                const sortedStations = [...stations].sort((a, b) => {
+                    // Handle missing distance property
+                    const aDist = a.distance !== undefined ? a.distance : 0;
+                    const bDist = b.distance !== undefined ? b.distance : 0;
+                    
+                    if (aDist === 0) return bDist === 0 ? 0 : (b.isLeft ? 1 : -1);
+                    if (bDist === 0) return a.isLeft ? -1 : 1;
+                    if (a.isLeft && b.isLeft) return bDist - aDist;
+                    if (!a.isLeft && !b.isLeft) return aDist - bDist;
+                    return a.isLeft ? -1 : 1;
+                });
+                
+                // Calculate segment distances
+                for (let i = 0; i < sortedStations.length; i++) {
+                    const station = sortedStations[i];
+                    
+                    if (i === 0) {
+                        // First station in sorted order (leftmost)
+                        station.segmentDistance = station.distance !== undefined ? station.distance : 10;
+                    } else {
+                        const prevStation = sortedStations[i - 1];
+                        const prevDist = prevStation.distance !== undefined ? prevStation.distance : 0;
+                        const currDist = station.distance !== undefined ? station.distance : prevDist + 10;
+                        station.segmentDistance = Math.abs(currDist - prevDist);
+                    }
+                    
+                    // Remove old distance property
+                    delete station.distance;
                 }
             }
             
@@ -660,6 +652,11 @@
                         // Add new fields if missing
                         if (project.config.aquiferOverpressure === undefined) {
                             project.config.aquiferOverpressure = 0;
+                        }
+                        
+                        // Migrate station distances
+                        if (project.config.stations && project.config.stations.length > 0) {
+                            this.migrateStationDistances(project.config.stations);
                         }
                         
                         this.state.projects = [project];
@@ -1404,7 +1401,7 @@
             if (!project) return '';
             
             const config = project.config;
-            const offtakeStation = config.stations ? config.stations.find(s => s.distance === 0) : null;
+            const offtakeStation = config.stations ? config.stations.find(s => s.id === 'offtake') : null;
             const customName = offtakeStation ? offtakeStation.customName || '' : '';
             
             return `
@@ -1466,29 +1463,27 @@
             
             // Find the previous station based on the station's side
             let prevStation = null;
-            let distanceToPrev = station.distance;
+            let prevStationName = 'Offtake';
             
             if (station.isLeft) {
-                // For left stations, find the station with next smaller distance (closer to offtake)
-                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = leftStations.findIndex(s => s === station);
+                // For left stations, find the previous station in the ordered list
+                const orderedStations = getOrderedStations(project.config.stations);
+                const stationPos = orderedStations.findIndex(s => s === station);
                 if (stationPos > 0) {
-                    prevStation = leftStations[stationPos - 1];
-                    distanceToPrev = station.distance - prevStation.distance;
+                    prevStation = orderedStations[stationPos - 1];
+                    prevStationName = prevStation.name;
                 }
             } else {
-                // For right stations, find the station with next smaller distance
-                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = rightStations.findIndex(s => s === station);
+                // For right stations, find the previous station in the ordered list
+                const orderedStations = getOrderedStations(project.config.stations);
+                const stationPos = orderedStations.findIndex(s => s === station);
                 if (stationPos > 0) {
-                    prevStation = rightStations[stationPos - 1];
-                    distanceToPrev = station.distance - prevStation.distance;
+                    prevStation = orderedStations[stationPos - 1];
+                    prevStationName = prevStation.name;
                 }
             }
             
-            const distanceLabel = prevStation ? `Distance to ${prevStation.name} (km)` : 'Distance to Offtake (km)';
+            const distanceLabel = `Distance to ${prevStationName} (km)`;
             
             return `
                 <div class="inline-input-header">
@@ -1504,7 +1499,7 @@
                     </div>
                     <div class="input-field">
                         <label>${distanceLabel}</label>
-                        <input type="number" id="modalDistance" step="1" min="0" value="${distanceToPrev}">
+                        <input type="number" id="modalDistance" step="1" min="0" value="${station.segmentDistance}">
                     </div>
                     <div class="input-field">
                         <label>Permeability (mD)</label>
@@ -1595,8 +1590,8 @@
             document.getElementById('offtakeCustomName').addEventListener('input', function() {
                 const stations = appState.getCurrentProject().config.stations;
                 if (stations.length > 0) {
-                    // Find the offtake station (the one with distance 0)
-                    const offtakeIndex = stations.findIndex(s => s.distance === 0);
+                    // Find the offtake station
+                    const offtakeIndex = stations.findIndex(s => s.id === 'offtake');
                     if (offtakeIndex !== -1) {
                         appState.updateStation(offtakeIndex, {
                             customName: this.value,
@@ -1613,7 +1608,7 @@
                 // Update the station's depth as well
                 const stations = appState.getCurrentProject().config.stations;
                 if (stations && stations.length > 0) {
-                    const offtakeIndex = stations.findIndex(s => s.distance === 0);
+                    const offtakeIndex = stations.findIndex(s => s.id === 'offtake');
                     if (offtakeIndex !== -1) {
                         appState.updateStation(offtakeIndex, {
                             depth: parseFloat(this.value)
@@ -1657,40 +1652,17 @@
             
             const station = project.config.stations[currentStationIndex];
             const customName = document.getElementById('modalCustomName').value;
-            const inputDistance = parseFloat(document.getElementById('modalDistance').value);
-            
-            // Calculate absolute distance from offtake based on the input distance to previous station
-            let newAbsoluteDistance = inputDistance;
-            
-            if (station.isLeft) {
-                // For left stations, find the station with next smaller distance
-                const leftStations = project.config.stations.filter(s => s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = leftStations.findIndex(s => s === station);
-                if (stationPos > 0) {
-                    const prevStation = leftStations[stationPos - 1];
-                    newAbsoluteDistance = prevStation.distance + inputDistance;
-                }
-            } else {
-                // For right stations, find the station with next smaller distance
-                const rightStations = project.config.stations.filter(s => !s.isLeft || s.distance === 0)
-                    .sort((a, b) => a.distance - b.distance);
-                const stationPos = rightStations.findIndex(s => s === station);
-                if (stationPos > 0) {
-                    const prevStation = rightStations[stationPos - 1];
-                    newAbsoluteDistance = prevStation.distance + inputDistance;
-                }
-            }
+            const segmentDistance = parseFloat(document.getElementById('modalDistance').value);
             
             // Determine the default name based on position
             let defaultName;
             if (station.isLeft) {
-                const leftStations = project.config.stations.filter(s => s.isLeft).sort((a, b) => a.distance - b.distance);
-                const positionFromOfftake = leftStations.findIndex(s => s === station) + 1;
+                const leftStations = project.config.stations.filter(s => s.isLeft);
+                const positionFromOfftake = leftStations.filter(s => s.id <= station.id).length;
                 defaultName = `Station L${positionFromOfftake}`;
-            } else if (station.distance > 0) {
-                const rightStations = project.config.stations.filter(s => !s.isLeft && s.distance > 0).sort((a, b) => a.distance - b.distance);
-                const positionFromOfftake = rightStations.findIndex(s => s === station) + 1;
+            } else if (station.id !== 'offtake') {
+                const rightStations = project.config.stations.filter(s => !s.isLeft && s.id !== 'offtake');
+                const positionFromOfftake = rightStations.filter(s => s.id <= station.id).length;
                 defaultName = `Station R${positionFromOfftake}`;
             } else {
                 defaultName = 'Offtake';
@@ -1699,7 +1671,7 @@
             const updates = {
                 customName: customName,
                 name: customName || defaultName,
-                distance: newAbsoluteDistance,
+                segmentDistance: segmentDistance,
                 isLeft: station.isLeft,
                 height: parseFloat(document.getElementById('modalHeight').value),
                 width: parseFloat(document.getElementById('modalWidth').value),
@@ -1709,33 +1681,8 @@
                 depth: parseFloat(document.getElementById('modalDepth').value)
             };
             
-            // Calculate distance change BEFORE updating
-            const oldDistance = station.distance;
-            const distanceChange = newAbsoluteDistance - oldDistance;
-            
             // Update this station
             appState.updateStation(currentStationIndex, updates);
-            
-            // Update positions of dependent stations to maintain relative distances
-            if (Math.abs(distanceChange) > 0.001) {
-                const allStations = [...project.config.stations];
-                
-                if (station.isLeft) {
-                    // For left stations, update all stations with greater distance on the left side
-                    allStations.forEach((s, idx) => {
-                        if (s.isLeft && s.distance > oldDistance && idx !== currentStationIndex) {
-                            appState.updateStation(idx, { distance: s.distance + distanceChange });
-                        }
-                    });
-                } else {
-                    // For right stations, update all stations with greater distance on the right side
-                    allStations.forEach((s, idx) => {
-                        if (!s.isLeft && s.distance > oldDistance && idx !== currentStationIndex) {
-                            appState.updateStation(idx, { distance: s.distance + distanceChange });
-                        }
-                    });
-                }
-            }
             
             // Update chart dataset label if chart exists
             if (stationPressureChart && stationPressureChart.data.datasets[currentStationIndex]) {
@@ -1925,18 +1872,26 @@
         // UI FUNCTIONS (UPDATED TO USE STATE)
         // ===========================================
         
-        // Common sorting function for stations
-        function getSortedStations(stations) {
+        // Get stations in their predictable order
+        function getOrderedStations(stations) {
             return [...stations].sort((a, b) => {
                 // Offtake always in the middle
-                if (a.distance === 0) return b.isLeft ? 1 : -1;
-                if (b.distance === 0) return a.isLeft ? -1 : 1;
+                if (a.id === 'offtake') return b.isLeft ? 1 : -1;
+                if (b.id === 'offtake') return a.isLeft ? -1 : 1;
                 
-                // Both are left stations
-                if (a.isLeft && b.isLeft) return b.distance - a.distance;
+                // Both are left stations - reverse order (L3, L2, L1)
+                if (a.isLeft && b.isLeft) {
+                    const aNum = parseInt(a.id.match(/\d+/)[0]);
+                    const bNum = parseInt(b.id.match(/\d+/)[0]);
+                    return bNum - aNum;
+                }
                 
-                // Both are right stations
-                if (!a.isLeft && !b.isLeft) return a.distance - b.distance;
+                // Both are right stations - normal order (R1, R2, R3)
+                if (!a.isLeft && !b.isLeft) {
+                    const aNum = parseInt(a.id.match(/\d+/)[0]);
+                    const bNum = parseInt(b.id.match(/\d+/)[0]);
+                    return aNum - bNum;
+                }
                 
                 // One is left, one is right
                 return a.isLeft ? -1 : 1;
@@ -2901,7 +2856,7 @@
                        ' at t = ' + time.toFixed(2) + ' years</h4>';
             
             // Find the offtake station index
-            const offtakeIndex = stations.findIndex(s => s.distance === 0);
+            const offtakeIndex = stations.findIndex(s => s.id === 'offtake');
             
             if (stationIndex === offtakeIndex) {
                 const hydrostaticPressure = calculateHydrostaticPressure(stations[offtakeIndex].depth);
@@ -2915,45 +2870,14 @@
                 html += '<div class="calc-value">Depletion: ' + depletion.toFixed(2) + ' bar</div>';
                 html += '</div>';
             } else {
-                // Find the correct segment index based on sorted stations
-                const sortedStations = [...stations].sort((a, b) => {
-                    // Offtake always in the middle
-                    if (a.distance === 0) return b.isLeft ? 1 : -1;
-                    if (b.distance === 0) return a.isLeft ? -1 : 1;
-                    
-                    // Both are left stations
-                    if (a.isLeft && b.isLeft) return b.distance - a.distance;
-                    
-                    // Both are right stations
-                    if (!a.isLeft && !b.isLeft) return a.distance - b.distance;
-                    
-                    // One is left, one is right
-                    return a.isLeft ? -1 : 1;
-                });
+                // Find the previous station in the ordered array
+                const orderedStations = getOrderedStations(stations);
+                const orderedIndex = orderedStations.findIndex(s => s === stations[stationIndex]);
                 
-                const sortedIndex = sortedStations.findIndex(s => s === stations[stationIndex]);
-                const sortedOfftakeIndex = sortedStations.findIndex(s => s.distance === 0);
-                
-                let segmentIndex;
-                let prevStationInSorted;
-                let prevStationIndex;
-                
-                if (sortedIndex > sortedOfftakeIndex) {
-                    // Station is to the right of offtake
-                    segmentIndex = sortedIndex - 1;
-                    prevStationInSorted = sortedStations[sortedIndex - 1];
-                } else {
-                    // Station is to the left of offtake
-                    segmentIndex = sortedIndex;
-                    prevStationInSorted = sortedStations[sortedIndex + 1];
-                }
-                
-                prevStationIndex = stations.indexOf(prevStationInSorted);
-                const currStation = stations[stationIndex];
-                
-                if (segmentIndex >= 0 && segmentIndex < window.lastSegmentProps.length) {
-                    const props = window.lastSegmentProps[segmentIndex];
-                    const prevStation = stations[prevStationIndex];
+                if (orderedIndex > 0) {
+                    const prevStation = orderedStations[orderedIndex - 1];
+                    const prevStationIndex = stations.indexOf(prevStation);
+                    const currStation = stations[stationIndex];
                     
                     const waterDensity = parseFloat(project.config.waterDensity) * 1000;
                     const waterViscosity_cp = parseFloat(project.config.waterViscosity);
@@ -2965,8 +2889,27 @@
                     const totalCompressibility_pa = compressibilityBarToPa(totalCompressibility_bar);
                     
                     const t_s = time * 365.25 * 24 * 3600;
-                    const distance_m = Math.abs(currStation.distance - prevStation.distance) * 1000;
-                    const tD = calculateDimensionlessTime(props.trueDiffusivity, t_s, distance_m);
+                    const distance_m = currStation.segmentDistance * 1000;
+                    
+                    // Get properties from the appropriate station
+                    let props;
+                    if (prevStation.id === 'offtake') {
+                        // Previous station is offtake, use current station's properties
+                        props = currStation;
+                    } else if (currStation.id === 'offtake') {
+                        // Current station is offtake, use previous station's properties
+                        props = prevStation;
+                    } else {
+                        // Neither is offtake - use the station farther from offtake
+                        props = currStation;
+                    }
+                    
+                    const k_md = props.permeability;
+                    const k_m2 = permeabilityMdToM2(k_md);
+                    const effectiveK = k_m2 * props.ntg;
+                    const trueDiffusivity = calculateHydraulicDiffusivity(effectiveK, props.porosity, waterViscosity_pas, totalCompressibility_pa);
+                    
+                    const tD = calculateDimensionlessTime(trueDiffusivity, t_s, distance_m);
                     const propagationFactor = calculatePressurePropagationFactor(tD);
                     
                     const prevPressures = calculateStepwisePressures(time, window.lastSegmentProps);
@@ -2979,8 +2922,8 @@
                     
                     html += '<div class="calculation-section">';
                     html += '<h5>1. Segment Properties</h5>';
-                    html += renderLatex('k = ' + props.k_md.toFixed(1) + ' \\text{ mD} = ' + 
-                                       formatScientific(props.k_m2) + ' \\text{ m}^2');
+                    html += renderLatex('k = ' + k_md.toFixed(1) + ' \\text{ mD} = ' + 
+                                       formatScientific(k_m2) + ' \\text{ m}^2');
                     html += renderLatex('\\phi = ' + props.porosity.toFixed(3));
                     html += renderLatex('\\mu = ' + waterViscosity_cp + ' \\text{ cP} = ' + 
                                        formatScientific(waterViscosity_pas) + ' \\text{ Pa}\\text{s}');
@@ -2991,11 +2934,11 @@
                     html += '<div class="calculation-section">';
                     html += '<h5>2. Hydraulic Diffusivity</h5>';
                     html += renderLatex('\\eta_p = \\frac{k}{\\phi \\mu C_t} = \\frac{' + 
-                                       formatScientific(props.k_m2) + '}{' + 
+                                       formatScientific(effectiveK) + '}{' + 
                                        props.porosity.toFixed(3) + ' \\times ' + 
                                        formatScientific(waterViscosity_pas) + ' \\times ' + 
                                        formatScientific(totalCompressibility_pa) + '}');
-                    html += renderLatex('\\eta_p = ' + formatScientific(props.trueDiffusivity) + ' \\text{ m}^2/\\text{s}');
+                    html += renderLatex('\\eta_p = ' + formatScientific(trueDiffusivity) + ' \\text{ m}^2/\\text{s}');
                     html += '</div>';
                     
                     html += '<div class="calculation-section">';
@@ -3003,7 +2946,7 @@
                     html += renderLatex('t = ' + time.toFixed(2) + ' \\text{ years} = ' + formatScientific(t_s) + ' \\text{ s}');
                     html += renderLatex('L = ' + (distance_m/1000).toFixed(1) + ' \\text{ km} = ' + distance_m + ' \\text{ m}');
                     html += renderLatex('t_D = \\frac{\\eta_p t}{L^2} = \\frac{' + 
-                                       formatScientific(props.trueDiffusivity) + ' \\times ' + 
+                                       formatScientific(trueDiffusivity) + ' \\times ' + 
                                        formatScientific(t_s) + '}{(' + distance_m + ')^2}');
                     html += renderLatex('t_D = ' + tD.toFixed(4));
                     html += '</div>';
@@ -3035,31 +2978,11 @@
                     // Add segment information for clarity
                     html += '<div class="calculation-section">';
                     html += '<h5>Note on Property Assignment</h5>';
-                    
-                    // Determine which station's properties are being used
-                    let propSource;
-                    if (prevStation.distance === 0) {
-                        // Previous station is offtake, using current station's properties
-                        propSource = currStation.name;
-                    } else if (currStation.distance === 0) {
-                        // Current station is offtake, using previous station's properties
-                        propSource = prevStation.name;
-                    } else {
-                        // Neither is offtake, using the station farther from offtake
-                        if (currStation.isLeft && prevStation.isLeft) {
-                            // Both are left, use the one with higher distance (farther from offtake)
-                            propSource = currStation.distance > prevStation.distance ? currStation.name : prevStation.name;
-                        } else {
-                            // Both are right, use the one with higher distance (farther from offtake)
-                            propSource = currStation.distance > prevStation.distance ? currStation.name : prevStation.name;
-                        }
-                    }
-                    
-                    html += '<div class="calc-value">Using all rock properties from ' + propSource + ':</div>';
-                    html += '<div class="calc-value">- Permeability: ' + props.k_md.toFixed(0) + ' mD</div>';
+                    html += '<div class="calc-value">Using all rock properties from ' + props.name + ':</div>';
+                    html += '<div class="calc-value">- Permeability: ' + props.permeability.toFixed(0) + ' mD</div>';
                     html += '<div class="calc-value">- Porosity: ' + props.porosity.toFixed(3) + '</div>';
                     html += '<div class="calc-value">- Height: ' + props.height.toFixed(0) + ' m</div>';
-                    html += '<div class="calc-value">- Width: ' + (props.width/1000).toFixed(1) + ' km</div>';
+                    html += '<div class="calc-value">- Width: ' + props.width.toFixed(1) + ' km</div>';
                     html += '<div class="calc-value">- NTG: ' + props.ntg.toFixed(3) + '</div>';
                     html += '<div class="calc-value">This represents the rock properties in the segment between ' + 
                             prevStation.name + ' and ' + currStation.name + '</div>';
@@ -3146,7 +3069,7 @@
             });
             
             // First find or create the offtake station
-            let offtakeStation = existingStations.find(s => s.distance === 0);
+            let offtakeStation = existingStations.find(s => s.id === 'offtake');
             
             if (!offtakeStation) {
                 // Create new offtake station
@@ -3154,7 +3077,7 @@
                     id: 'offtake',
                     name: 'Offtake',
                     customName: '',
-                    distance: 0,
+                    segmentDistance: 0,
                     isLeft: false,
                     height: 40,
                     width: 1,
@@ -3171,12 +3094,15 @@
                 }
                 // Ensure offtake station depth matches the configured offtake depth
                 offtakeStation.depth = project.config.offtakeDepth || 2000;
+                // Ensure segmentDistance exists
+                if (offtakeStation.segmentDistance === undefined) {
+                    offtakeStation.segmentDistance = 0;
+                }
             }
             
-            // Add left stations (positive distances, but marked as left)
+            // Add left stations (reversed order)
             for (let i = numStationsLeft; i > 0; i--) {
                 const targetId = `station_left_${i}`;
-                const targetDistance = 10 * i;
                 
                 // Try to find existing station
                 let existingStation = stationMap.get(targetId);
@@ -3187,7 +3113,7 @@
                         id: targetId,
                         name: `Station L${i}`,
                         customName: '',
-                        distance: targetDistance,
+                        segmentDistance: 10,
                         isLeft: true,
                         height: 40,
                         width: 1,
@@ -3203,6 +3129,10 @@
                     if (!existingStation.customName) {
                         existingStation.name = `Station L${i}`;
                     }
+                    // Ensure segmentDistance exists
+                    if (existingStation.segmentDistance === undefined) {
+                        existingStation.segmentDistance = 10;
+                    }
                 }
                 stations.push(existingStation);
             }
@@ -3210,10 +3140,9 @@
             // Add offtake station
             stations.push(offtakeStation);
             
-            // Add right stations (positive distances)
+            // Add right stations
             for (let i = 1; i <= numStations; i++) {
                 const targetId = `station_right_${i}`;
-                const targetDistance = 10 * i;
                 
                 // Try to find existing station
                 let existingStation = stationMap.get(targetId);
@@ -3224,7 +3153,7 @@
                         id: targetId,
                         name: `Station R${i}`,
                         customName: '',
-                        distance: targetDistance,
+                        segmentDistance: 10,
                         isLeft: false,
                         height: 40,
                         width: 1,
@@ -3240,25 +3169,13 @@
                     if (!existingStation.customName) {
                         existingStation.name = `Station R${i}`;
                     }
+                    // Ensure segmentDistance exists
+                    if (existingStation.segmentDistance === undefined) {
+                        existingStation.segmentDistance = 10;
+                    }
                 }
                 stations.push(existingStation);
             }
-            
-            // Sort stations: left stations in reverse order, then offtake, then right stations
-            stations.sort((a, b) => {
-                // Offtake always in the middle
-                if (a.distance === 0) return b.isLeft ? 1 : -1;
-                if (b.distance === 0) return a.isLeft ? -1 : 1;
-                
-                // Both are left stations
-                if (a.isLeft && b.isLeft) return b.distance - a.distance;
-                
-                // Both are right stations
-                if (!a.isLeft && !b.isLeft) return a.distance - b.distance;
-                
-                // One is left, one is right
-                return a.isLeft ? -1 : 1;
-            });
             
             appState.updateStations(stations);
             
@@ -3328,7 +3245,7 @@
                 nameLabel.className = 'station-name';
                 
                 // Find the offtake station index
-                const offtakeIndex = stations.findIndex(s => s.distance === 0);
+                const offtakeIndex = stations.findIndex(s => s.id === 'offtake');
                 
                 // Assign color: offtake gets red, others get colors based on side
                 let colorIndex;
@@ -3336,16 +3253,16 @@
                     colorIndex = 0; // Red for offtake
                 } else if (station.isLeft) {
                     // Left stations: use colors from the end backwards
-                    const leftStations = stations.filter(s => s.isLeft).sort((a, b) => a.distance - b.distance);
-                    const positionFromOfftake = leftStations.indexOf(station) + 1;
+                    const leftStations = stations.filter(s => s.isLeft);
+                    const positionFromOfftake = leftStations.filter(s => parseInt(s.id.match(/\d+/)[0]) <= parseInt(station.id.match(/\d+/)[0])).length;
                     // Start from the last color and work backwards
                     colorIndex = stationColors.length - ((positionFromOfftake - 1) % (stationColors.length - 1)) - 1;
                     // Ensure we don't use red (index 0)
                     if (colorIndex === 0) colorIndex = stationColors.length - 1;
                 } else {
                     // Right stations: use colors from the beginning forward
-                    const rightStations = stations.filter(s => !s.isLeft && s.distance > 0).sort((a, b) => a.distance - b.distance);
-                    const positionFromOfftake = rightStations.indexOf(station) + 1;
+                    const rightStations = stations.filter(s => !s.isLeft && s.id !== 'offtake');
+                    const positionFromOfftake = rightStations.filter(s => parseInt(s.id.match(/\d+/)[0]) <= parseInt(station.id.match(/\d+/)[0])).length;
                     // Start at color index 1 (orange) and cycle through
                     colorIndex = ((positionFromOfftake - 1) % (stationColors.length - 1)) + 1;
                 }
@@ -3423,7 +3340,7 @@
             const station = project.config.stations[index];
             
             // If it's the offtake station
-            if (station.distance === 0) {
+            if (station.id === 'offtake') {
                 showInlineInput('offtake');
                 return;
             }
@@ -3752,7 +3669,7 @@
             const stations = project.config.stations;
             
             // Find the offtake station index
-            const offtakeIndex = stations.findIndex(s => s.distance === 0);
+            const offtakeIndex = stations.findIndex(s => s.id === 'offtake');
             
             // Create datasets for each station
             const datasets = stations.map((station, index) => {
@@ -3762,16 +3679,16 @@
                     colorIndex = 0; // Red for offtake
                 } else if (station.isLeft) {
                     // Left stations: use colors from the end backwards
-                    const leftStations = stations.filter(s => s.isLeft).sort((a, b) => a.distance - b.distance);
-                    const positionFromOfftake = leftStations.indexOf(station) + 1;
+                    const leftStations = stations.filter(s => s.isLeft);
+                    const positionFromOfftake = leftStations.filter(s => parseInt(s.id.match(/\d+/)[0]) <= parseInt(station.id.match(/\d+/)[0])).length;
                     // Start from the last color and work backwards
                     colorIndex = stationColors.length - ((positionFromOfftake - 1) % (stationColors.length - 1)) - 1;
                     // Ensure we don't use red (index 0)
                     if (colorIndex === 0) colorIndex = stationColors.length - 1;
                 } else {
                     // Right stations: use colors from the beginning forward
-                    const rightStations = stations.filter(s => !s.isLeft && s.distance > 0).sort((a, b) => a.distance - b.distance);
-                    const positionFromOfftake = rightStations.indexOf(station) + 1;
+                    const rightStations = stations.filter(s => !s.isLeft && s.id !== 'offtake');
+                    const positionFromOfftake = rightStations.filter(s => parseInt(s.id.match(/\d+/)[0]) <= parseInt(station.id.match(/\d+/)[0])).length;
                     // Start at color index 1 (orange) and cycle through
                     colorIndex = ((positionFromOfftake - 1) % (stationColors.length - 1)) + 1;
                 }
@@ -3897,15 +3814,12 @@
             const stations = project.config.stations;
             const segmentProps = [];
             
-            // Sort stations using the common sorting function
-            const sortedStations = getSortedStations(stations);
+            // Get ordered stations
+            const orderedStations = getOrderedStations(stations);
             
-            // Find the offtake station
-            const offtakeIndex = sortedStations.findIndex(s => s.distance === 0);
-            
-            for (let i = 0; i < sortedStations.length - 1; i++) {
-                const currStation = sortedStations[i];
-                const nextStation = sortedStations[i + 1];
+            for (let i = 0; i < orderedStations.length - 1; i++) {
+                const currStation = orderedStations[i];
+                const nextStation = orderedStations[i + 1];
                 
                 // Get fluid properties
                 const waterDensity = parseFloat(project.config.waterDensity) * 1000;
@@ -3917,14 +3831,14 @@
                 // IMPORTANT: Always use properties from the station FARTHER from offtake
                 let k_md, height, width, ntg, porosity;
                 
-                if (currStation.distance === 0) {
+                if (currStation.id === 'offtake') {
                     // Current station is offtake, use next station's properties
                     k_md = nextStation.permeability;
                     height = nextStation.height;
                     width = nextStation.width;
                     ntg = nextStation.ntg;
                     porosity = nextStation.porosity;
-                } else if (nextStation.distance === 0) {
+                } else if (nextStation.id === 'offtake') {
                     // Next station is offtake, use current station's properties
                     k_md = currStation.permeability;
                     height = currStation.height;
@@ -3933,31 +3847,12 @@
                     porosity = currStation.porosity;
                 } else {
                     // Neither is offtake - use the station farther from offtake
-                    // Since stations are sorted with left stations before offtake and right after,
-                    // for left side: lower index = farther from offtake (use currStation)
-                    // for right side: higher index = farther from offtake (use nextStation)
-                    if (currStation.isLeft && nextStation.isLeft) {
-                        // Both are left stations, currStation has lower index so is farther
-                        k_md = currStation.permeability;
-                        height = currStation.height;
-                        width = currStation.width;
-                        ntg = currStation.ntg;
-                        porosity = currStation.porosity;
-                    } else if (!currStation.isLeft && !nextStation.isLeft) {
-                        // Both are right stations, nextStation has higher index so is farther
-                        k_md = nextStation.permeability;
-                        height = nextStation.height;
-                        width = nextStation.width;
-                        ntg = nextStation.ntg;
-                        porosity = nextStation.porosity;
-                    } else {
-                        // This shouldn't happen with proper sorting
-                        k_md = nextStation.permeability;
-                        height = nextStation.height;
-                        width = nextStation.width;
-                        ntg = nextStation.ntg;
-                        porosity = nextStation.porosity;
-                    }
+                    // Since we're going in order, nextStation is always farther from offtake
+                    k_md = nextStation.permeability;
+                    height = nextStation.height;
+                    width = nextStation.width;
+                    ntg = nextStation.ntg;
+                    porosity = nextStation.porosity;
                 }
                 
                 const k_m2 = permeabilityMdToM2(k_md);
@@ -4008,45 +3903,29 @@
             const t_s = time * 365.25 * 24 * 3600;
             
             // Find the offtake station
-            const offtakeIndex = stations.findIndex(s => s.distance === 0);
+            const offtakeIndex = stations.findIndex(s => s.id === 'offtake');
             
             // Offtake pressure
             const offtakeHydrostatic = calculateHydrostaticPressure(stations[offtakeIndex].depth);
             const offtakePressure = time === 0 ? offtakeHydrostatic : interpolatePressure(time);
             pressures[offtakeIndex] = offtakePressure;
             
-            // Create sorted list with indices preserved
-            const sortedIndices = stations.map((_, i) => i)
-                .sort((a, b) => {
-                    const stationA = stations[a];
-                    const stationB = stations[b];
-                    
-                    // Offtake always in the middle
-                    if (stationA.distance === 0) return stationB.isLeft ? 1 : -1;
-                    if (stationB.distance === 0) return stationA.isLeft ? -1 : 1;
-                    
-                    // Both are left stations
-                    if (stationA.isLeft && stationB.isLeft) return stationB.distance - stationA.distance;
-                    
-                    // Both are right stations
-                    if (!stationA.isLeft && !stationB.isLeft) return stationA.distance - stationB.distance;
-                    
-                    // One is left, one is right
-                    return stationA.isLeft ? -1 : 1;
-                });
+            // Get ordered stations
+            const orderedStations = getOrderedStations(stations);
+            const orderedOfftakeIndex = orderedStations.findIndex(s => s.id === 'offtake');
             
             // Calculate pressure propagating to the right
-            for (let i = sortedIndices.indexOf(offtakeIndex) + 1; i < sortedIndices.length; i++) {
-                const currIndex = sortedIndices[i];
-                const prevIndex = sortedIndices[i - 1];
+            for (let i = orderedOfftakeIndex + 1; i < orderedStations.length; i++) {
+                const currStation = orderedStations[i];
+                const prevStation = orderedStations[i - 1];
                 const segmentIndex = i - 1;
                 
-                const prevStation = stations[prevIndex];
-                const currStation = stations[currIndex];
+                const currIndex = stations.indexOf(currStation);
+                const prevIndex = stations.indexOf(prevStation);
                 const props = segmentProperties[segmentIndex];
                 
-                // Calculate distance
-                const distance_m = Math.abs(currStation.distance - prevStation.distance) * 1000;
+                // Use segment distance directly
+                const distance_m = currStation.segmentDistance * 1000;
                 
                 // Calculate dimensionless time
                 const tD = calculateDimensionlessTime(props.trueDiffusivity, t_s, distance_m);
@@ -4067,17 +3946,17 @@
             }
             
             // Calculate pressure propagating to the left
-            for (let i = sortedIndices.indexOf(offtakeIndex) - 1; i >= 0; i--) {
-                const currIndex = sortedIndices[i];
-                const prevIndex = sortedIndices[i + 1];
+            for (let i = orderedOfftakeIndex - 1; i >= 0; i--) {
+                const currStation = orderedStations[i];
+                const prevStation = orderedStations[i + 1];
                 const segmentIndex = i;
                 
-                const prevStation = stations[prevIndex];
-                const currStation = stations[currIndex];
+                const currIndex = stations.indexOf(currStation);
+                const prevIndex = stations.indexOf(prevStation);
                 const props = segmentProperties[segmentIndex];
                 
-                // Calculate distance
-                const distance_m = Math.abs(currStation.distance - prevStation.distance) * 1000;
+                // Use segment distance directly
+                const distance_m = currStation.segmentDistance * 1000;
                 
                 // Calculate dimensionless time
                 const tD = calculateDimensionlessTime(props.trueDiffusivity, t_s, distance_m);
@@ -4151,43 +4030,52 @@
                 }
             });
             
-            // Update parameter labels - FIXED LOGIC
-            // Get sorted stations for segment calculation
-            const sortedStations = getSortedStations(stations);
-            
+            // Update parameter labels for visual segments
             for (let i = 0; i < stations.length - 1; i++) {
-                // Get the visual segment (as displayed in UI)
-                const visualStation1 = stations[i];
-                const visualStation2 = stations[i + 1];
+                const currStation = stations[i];
+                const nextStation = stations[i + 1];
                 
-                // Find these stations' positions in the sorted array
-                const sortedIndex1 = sortedStations.indexOf(visualStation1);
-                const sortedIndex2 = sortedStations.indexOf(visualStation2);
+                // Determine which station's properties to display
+                let props;
+                if (currStation.id === 'offtake') {
+                    props = nextStation;
+                } else if (nextStation.id === 'offtake') {
+                    props = currStation;
+                } else {
+                    // Use the station farther from offtake
+                    props = nextStation;
+                }
                 
-                // The segment index is the lower of the two sorted indices
-                const segmentIndex = Math.min(sortedIndex1, sortedIndex2);
+                // Update permeability label
+                const permLabel = document.getElementById(`perm${i}`);
+                if (permLabel) {
+                    permLabel.textContent = `${props.permeability.toFixed(0)} mD`;
+                }
                 
-                if (segmentIndex >= 0 && segmentIndex < segmentProperties.length) {
-                    const props = segmentProperties[segmentIndex];
-                    
-                    // Update permeability label
-                    const permLabel = document.getElementById(`perm${i}`);
-                    if (permLabel) {
-                        permLabel.textContent = `${props.k_md.toFixed(0)} mD`;
+                // Update dimensions label
+                const dimLabel = document.getElementById(`dim${i}`);
+                if (dimLabel) {
+                    const effectiveHeight = props.height * props.ntg;
+                    dimLabel.textContent = `${effectiveHeight.toFixed(0)} × ${props.width.toFixed(1)} km`;
+                }
+                
+                // Update distance label - use the correct station's segmentDistance
+                const distLabel = document.getElementById(`dist${i}`);
+                if (distLabel) {
+                    // For left stations going towards offtake, use current station's distance
+                    // For right stations going away from offtake, use next station's distance
+                    let distance;
+                    if (currStation.isLeft && !nextStation.isLeft) {
+                        // Current is left, next is offtake - use current's distance
+                        distance = currStation.segmentDistance || 0;
+                    } else if (!currStation.isLeft || !nextStation.isLeft) {
+                        // Either current is offtake or both are right - use next's distance
+                        distance = nextStation.segmentDistance || 0;
+                    } else {
+                        // Both are left stations - use current's distance
+                        distance = currStation.segmentDistance || 0;
                     }
-                    
-                    // Update dimensions label
-                    const dimLabel = document.getElementById(`dim${i}`);
-                    if (dimLabel) {
-                        dimLabel.textContent = `${props.effectiveHeight.toFixed(0)} × ${(props.width/1000).toFixed(1)} km`;
-                    }
-                    
-                    // Update distance label
-                    const distLabel = document.getElementById(`dist${i}`);
-                    if (distLabel) {
-                        const distance = Math.abs(visualStation2.distance - visualStation1.distance);
-                        distLabel.textContent = `${distance.toFixed(1)} km`;
-                    }
+                    distLabel.textContent = `${distance.toFixed(1)} km`;
                 }
             }
             
