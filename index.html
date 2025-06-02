@@ -266,6 +266,26 @@
             padding: 15px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
+        
+        /* Chart Toggle */
+        .chart-toggle { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            margin-top: 10px; 
+            padding: 10px 15px; 
+            background: #f8f9fa; 
+            border-radius: 6px; 
+            font-size: 0.9em;
+        }
+        .chart-toggle label { 
+            margin: 0; 
+            font-weight: normal; 
+            color: #555; 
+        }
+        .chart-toggle .toggle-switch { 
+            margin: 0 10px; 
+        }
 
         /* Tooltips */
         .tooltip { position: absolute; background: rgba(51, 51, 51, 0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.9em; white-space: nowrap; z-index: 1000; pointer-events: none; opacity: 0; transition: opacity 0.2s ease-in-out; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: translateX(-50%); }
@@ -392,6 +412,16 @@
             <!-- Pressure Chart -->
             <div class="chart-container">
                 <canvas id="stationPressureChart"></canvas>
+            </div>
+            
+            <!-- Chart Toggle -->
+            <div class="chart-toggle">
+                <label>Depletion</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="chartViewToggle" onchange="toggleChartView()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <label>Absolute Pressure</label>
             </div>
         </div>
     </div>
@@ -544,7 +574,8 @@
                     projects: [],
                     currentProjectId: null,
                     appSettings: {
-                        currentTime: 0
+                        currentTime: 0,
+                        showDepletionChart: true // New setting for chart view
                     }
                 };
                 
@@ -563,8 +594,13 @@
                         this.state = {
                             projects: data.projects || [],
                             currentProjectId: data.currentProjectId,
-                            appSettings: data.appSettings || { currentTime: 0 }
+                            appSettings: data.appSettings || { currentTime: 0, showDepletionChart: true }
                         };
+                        
+                        // Ensure showDepletionChart exists
+                        if (this.state.appSettings.showDepletionChart === undefined) {
+                            this.state.appSettings.showDepletionChart = true;
+                        }
                         
                         // Ensure all projects have description field and aquiferOverpressure
                         this.state.projects.forEach(project => {
@@ -823,6 +859,13 @@
                 this.state.appSettings.currentTime = time;
                 this.queueSave();
                 this.notify('currentTimeChanged', time);
+            }
+            
+            // Update chart view preference
+            updateChartView(showDepletion) {
+                this.state.appSettings.showDepletionChart = showDepletion;
+                this.queueSave();
+                this.notify('chartViewChanged', showDepletion);
             }
             
             // Update station
@@ -1213,6 +1256,9 @@
                     break;
                 case 'currentTimeChanged':
                     // Time slider already handles its own updates
+                    break;
+                case 'chartViewChanged':
+                    updatePressureHistory();
                     break;
             }
         });
@@ -1643,25 +1689,28 @@
                 depth: parseFloat(document.getElementById('modalDepth').value)
             };
             
+            // Calculate distance change BEFORE updating
+            const oldDistance = station.distance;
+            const distanceChange = newAbsoluteDistance - oldDistance;
+            
             // Update this station
             appState.updateStation(currentStationIndex, updates);
             
-            // Update positions of dependent stations (stations further from offtake)
-            const allStations = [...project.config.stations];
-            const distanceChange = newAbsoluteDistance - station.distance;
-            
+            // Update positions of dependent stations to maintain relative distances
             if (Math.abs(distanceChange) > 0.001) {
+                const allStations = [...project.config.stations];
+                
                 if (station.isLeft) {
-                    // Update all left stations with greater distance
+                    // For left stations, update all stations with greater distance on the left side
                     allStations.forEach((s, idx) => {
-                        if (s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
+                        if (s.isLeft && s.distance > oldDistance && idx !== currentStationIndex) {
                             appState.updateStation(idx, { distance: s.distance + distanceChange });
                         }
                     });
                 } else {
-                    // Update all right stations with greater distance
+                    // For right stations, update all stations with greater distance on the right side
                     allStations.forEach((s, idx) => {
-                        if (!s.isLeft && s.distance > station.distance && idx !== currentStationIndex) {
+                        if (!s.isLeft && s.distance > oldDistance && idx !== currentStationIndex) {
                             appState.updateStation(idx, { distance: s.distance + distanceChange });
                         }
                     });
@@ -1770,6 +1819,12 @@
             
             updateSimulation();
         });
+        
+        // Chart view toggle handler
+        function toggleChartView() {
+            const showDepletion = !document.getElementById('chartViewToggle').checked;
+            appState.updateChartView(showDepletion);
+        }
         
         // ===========================================
         // PHYSICS EQUATIONS (UPDATED WITH OVERPRESSURE)
@@ -1929,6 +1984,12 @@
             const currentTime = Math.min(appState.getAppSettings().currentTime, maxTime);
             document.getElementById('timeSlider').max = maxTime;
             document.getElementById('timeSlider').value = currentTime;
+            
+            // Update chart view toggle
+            const chartToggle = document.getElementById('chartViewToggle');
+            if (chartToggle) {
+                chartToggle.checked = !appState.getAppSettings().showDepletionChart;
+            }
             
             // Close any open inline inputs
             closeInlineInput();
@@ -3046,8 +3107,14 @@
             const existingStations = project.config.stations || [];
             
             const stations = [];
+            const stationMap = new Map();
             
-            // First find if we have an offtake station (distance = 0)
+            // Create a map of existing stations by ID for easy lookup
+            existingStations.forEach(station => {
+                stationMap.set(station.id, station);
+            });
+            
+            // First find or create the offtake station
             let offtakeStation = existingStations.find(s => s.distance === 0);
             
             if (!offtakeStation) {
@@ -3065,21 +3132,24 @@
                     permeability: 500,
                     depth: 2000
                 };
-            }
-            
-            offtakeStation.isLeft = false; // Ensure property exists
-            
-            if (offtakeStation.customName) {
-                offtakeStation.name = offtakeStation.customName;
+            } else {
+                // Preserve existing offtake station
+                offtakeStation.isLeft = false; // Ensure property exists
+                if (offtakeStation.customName) {
+                    offtakeStation.name = offtakeStation.customName;
+                }
             }
             
             // Add left stations (positive distances, but marked as left)
             for (let i = numStationsLeft; i > 0; i--) {
-                const targetDistance = 10 * i;
                 const targetId = `station_left_${i}`;
-                let existingStation = existingStations.find(s => s.id === targetId);
+                const targetDistance = 10 * i;
+                
+                // Try to find existing station
+                let existingStation = stationMap.get(targetId);
                 
                 if (!existingStation) {
+                    // Create new station
                     existingStation = {
                         id: targetId,
                         name: `Station L${i}`,
@@ -3094,11 +3164,10 @@
                         depth: 2000
                     };
                 } else {
+                    // Preserve existing station data
                     existingStation.isLeft = true;
-                    existingStation.distance = targetDistance; // Update distance in case it changed
-                    if (existingStation.customName) {
-                        existingStation.name = existingStation.customName;
-                    } else {
+                    // Only update the default name if no custom name
+                    if (!existingStation.customName) {
                         existingStation.name = `Station L${i}`;
                     }
                 }
@@ -3110,11 +3179,14 @@
             
             // Add right stations (positive distances)
             for (let i = 1; i <= numStations; i++) {
-                const targetDistance = 10 * i;
                 const targetId = `station_right_${i}`;
-                let existingStation = existingStations.find(s => s.id === targetId);
+                const targetDistance = 10 * i;
+                
+                // Try to find existing station
+                let existingStation = stationMap.get(targetId);
                 
                 if (!existingStation) {
+                    // Create new station
                     existingStation = {
                         id: targetId,
                         name: `Station R${i}`,
@@ -3129,11 +3201,10 @@
                         depth: 2000
                     };
                 } else {
+                    // Preserve existing station data
                     existingStation.isLeft = false;
-                    existingStation.distance = targetDistance; // Update distance in case it changed
-                    if (existingStation.customName) {
-                        existingStation.name = existingStation.customName;
-                    } else {
+                    // Only update the default name if no custom name
+                    if (!existingStation.customName) {
                         existingStation.name = `Station R${i}`;
                     }
                 }
@@ -3681,6 +3752,11 @@
                 };
             });
             
+            const chartTitle = appState.getAppSettings().showDepletionChart ? 
+                'Station Depletion History' : 'Station Pressure History';
+            const yAxisLabel = appState.getAppSettings().showDepletionChart ? 
+                'Depletion (bar)' : 'Pressure (bar)';
+            
             stationPressureChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -3692,7 +3768,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Station Pressure History'
+                            text: chartTitle
                         },
                         verticalLine: {
                             x: 0
@@ -3715,7 +3791,7 @@
                         y: {
                             title: {
                                 display: true,
-                                text: 'Pressure (bar)'
+                                text: yAxisLabel
                             },
                             grid: {
                                 color: 'rgba(0, 0, 0, 0.05)'
@@ -3734,6 +3810,13 @@
             
             const simulationLength = parseFloat(project.config.simulationLength);
             const steps = 100;
+            const showDepletion = appState.getAppSettings().showDepletionChart;
+            
+            // Update chart title and y-axis label
+            stationPressureChart.options.plugins.title.text = showDepletion ? 
+                'Station Depletion History' : 'Station Pressure History';
+            stationPressureChart.options.scales.y.title.text = showDepletion ? 
+                'Depletion (bar)' : 'Pressure (bar)';
             
             // Clear existing data
             stationPressureChart.data.datasets.forEach(dataset => {
@@ -3750,9 +3833,14 @@
                 
                 // Add data point for each station
                 project.config.stations.forEach((station, stationIndex) => {
+                    const hydrostatic = calculateHydrostaticPressure(station.depth);
+                    const value = showDepletion ? 
+                        (hydrostatic - pressures[stationIndex]) : 
+                        pressures[stationIndex];
+                    
                     stationPressureChart.data.datasets[stationIndex].data.push({
                         x: time,
-                        y: pressures[stationIndex]
+                        y: value
                     });
                 });
             }
