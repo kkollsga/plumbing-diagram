@@ -2966,7 +2966,7 @@
                     html += '<h5>1. Segment Properties</h5>';
                     html += renderLatex('k = ' + props.k_md.toFixed(1) + ' \\text{ mD} = ' + 
                                        formatScientific(props.k_m2) + ' \\text{ m}^2');
-                    html += renderLatex('\\phi = ' + props.avgPorosity.toFixed(3));
+                    html += renderLatex('\\phi = ' + props.porosity.toFixed(3));
                     html += renderLatex('\\mu = ' + waterViscosity_cp + ' \\text{ cP} = ' + 
                                        formatScientific(waterViscosity_pas) + ' \\text{ Pa}\\text{s}');
                     html += renderLatex('C_t = ' + formatScientific(totalCompressibility_bar) + ' \\text{ bar}^{-1} = ' + 
@@ -2977,7 +2977,7 @@
                     html += '<h5>2. Hydraulic Diffusivity</h5>';
                     html += renderLatex('\\eta_p = \\frac{k}{\\phi \\mu C_t} = \\frac{' + 
                                        formatScientific(props.k_m2) + '}{' + 
-                                       props.avgPorosity.toFixed(3) + ' \\times ' + 
+                                       props.porosity.toFixed(3) + ' \\times ' + 
                                        formatScientific(waterViscosity_pas) + ' \\times ' + 
                                        formatScientific(totalCompressibility_pa) + '}');
                     html += renderLatex('\\eta_p = ' + formatScientific(props.trueDiffusivity) + ' \\text{ m}^2/\\text{s}');
@@ -3019,32 +3019,36 @@
                     
                     // Add segment information for clarity
                     html += '<div class="calculation-section">';
-                    html += '<h5>Note on Permeability Assignment</h5>';
+                    html += '<h5>Note on Property Assignment</h5>';
                     
-                    // Determine which station's permeability is being used
-                    let permSource;
+                    // Determine which station's properties are being used
+                    let propSource;
                     if (prevStation.distance === 0) {
-                        // Previous station is offtake, using current station's permeability
-                        permSource = currStation.name;
+                        // Previous station is offtake, using current station's properties
+                        propSource = currStation.name;
                     } else if (currStation.distance === 0) {
-                        // Current station is offtake, using previous station's permeability
-                        permSource = prevStation.name;
+                        // Current station is offtake, using previous station's properties
+                        propSource = prevStation.name;
                     } else {
                         // Neither is offtake, using the station farther from offtake
                         if (currStation.isLeft && prevStation.isLeft) {
                             // Both are left, use the one with higher distance (farther from offtake)
-                            permSource = currStation.distance > prevStation.distance ? currStation.name : prevStation.name;
+                            propSource = currStation.distance > prevStation.distance ? currStation.name : prevStation.name;
                         } else {
                             // Both are right, use the one with higher distance (farther from offtake)
-                            permSource = currStation.distance > prevStation.distance ? currStation.name : prevStation.name;
+                            propSource = currStation.distance > prevStation.distance ? currStation.name : prevStation.name;
                         }
                     }
                     
-                    html += '<div class="calc-value">Using permeability from ' + permSource + 
-                            ' (' + props.k_md.toFixed(0) + ' mD) for this segment</div>';
+                    html += '<div class="calc-value">Using all rock properties from ' + propSource + ':</div>';
+                    html += '<div class="calc-value">- Permeability: ' + props.k_md.toFixed(0) + ' mD</div>';
+                    html += '<div class="calc-value">- Porosity: ' + props.porosity.toFixed(3) + '</div>';
+                    html += '<div class="calc-value">- Height: ' + props.height.toFixed(0) + ' m</div>';
+                    html += '<div class="calc-value">- Width: ' + (props.width/1000).toFixed(1) + ' km</div>';
+                    html += '<div class="calc-value">- NTG: ' + props.ntg.toFixed(3) + '</div>';
                     html += '<div class="calc-value">This represents the rock properties in the segment between ' + 
                             prevStation.name + ' and ' + currStation.name + '</div>';
-                    html += '<div class="calc-value">The station farther from the offtake defines the segment properties</div>';
+                    html += '<div class="calc-value">The station farther from the offtake defines all segment properties</div>';
                     html += '</div>';
                 }
             }
@@ -3895,16 +3899,23 @@
                 const rockCompressibility_bar = parseFloat(project.config.rockCompressibility);
                 
                 // Convert units
-                // IMPORTANT: Always use permeability from the station FARTHER from offtake
-                // L3 defines L2-L3, L2 defines L1-L2, L1 defines OT-L1
-                // R1 defines OT-R1, R2 defines R1-R2, R3 defines R2-R3
-                let k_md;
+                // IMPORTANT: Always use properties from the station FARTHER from offtake
+                let k_md, height, width, ntg, porosity;
+                
                 if (currStation.distance === 0) {
-                    // Current station is offtake, use next station's permeability
+                    // Current station is offtake, use next station's properties
                     k_md = nextStation.permeability;
+                    height = nextStation.height;
+                    width = nextStation.width;
+                    ntg = nextStation.ntg;
+                    porosity = nextStation.porosity;
                 } else if (nextStation.distance === 0) {
-                    // Next station is offtake, use current station's permeability
+                    // Next station is offtake, use current station's properties
                     k_md = currStation.permeability;
+                    height = currStation.height;
+                    width = currStation.width;
+                    ntg = currStation.ntg;
+                    porosity = currStation.porosity;
                 } else {
                     // Neither is offtake - use the station farther from offtake
                     // Since stations are sorted with left stations before offtake and right after,
@@ -3913,12 +3924,24 @@
                     if (currStation.isLeft && nextStation.isLeft) {
                         // Both are left stations, currStation has lower index so is farther
                         k_md = currStation.permeability;
+                        height = currStation.height;
+                        width = currStation.width;
+                        ntg = currStation.ntg;
+                        porosity = currStation.porosity;
                     } else if (!currStation.isLeft && !nextStation.isLeft) {
                         // Both are right stations, nextStation has higher index so is farther
                         k_md = nextStation.permeability;
+                        height = nextStation.height;
+                        width = nextStation.width;
+                        ntg = nextStation.ntg;
+                        porosity = nextStation.porosity;
                     } else {
                         // This shouldn't happen with proper sorting
                         k_md = nextStation.permeability;
+                        height = nextStation.height;
+                        width = nextStation.width;
+                        ntg = nextStation.ntg;
+                        porosity = nextStation.porosity;
                     }
                 }
                 
@@ -3927,30 +3950,27 @@
                 const totalCompressibility_bar = rockCompressibility_bar + waterCompressibility_bar;
                 const totalCompressibility_pa = compressibilityBarToPa(totalCompressibility_bar);
                 
-                // Average properties between stations
-                const avgHeight = (currStation.height + nextStation.height) / 2;
-                const avgWidth = ((currStation.width + nextStation.width) / 2) * 1000;
-                const avgNTG = (currStation.ntg + nextStation.ntg) / 2;
-                const avgPorosity = (currStation.porosity + nextStation.porosity) / 2;
+                // Convert width to meters
+                const width_m = width * 1000;
                 
                 // Effective properties
-                const effectiveHeight = avgHeight * avgNTG;
-                const effectiveK = k_m2 * avgNTG;
+                const effectiveHeight = height * ntg;
+                const effectiveK = k_m2 * ntg;
                 
                 // Calculate derived properties
-                const transmissibility = calculateTransmissibility(effectiveK, effectiveHeight, avgWidth, waterViscosity_pas);
-                const storativity = calculateStorativity(avgPorosity, effectiveHeight, totalCompressibility_pa);
-                const trueDiffusivity = calculateHydraulicDiffusivity(effectiveK, avgPorosity, waterViscosity_pas, totalCompressibility_pa);
+                const transmissibility = calculateTransmissibility(effectiveK, effectiveHeight, width_m, waterViscosity_pas);
+                const storativity = calculateStorativity(porosity, effectiveHeight, totalCompressibility_pa);
+                const trueDiffusivity = calculateHydraulicDiffusivity(effectiveK, porosity, waterViscosity_pas, totalCompressibility_pa);
                 const hydraulicConductivity = calculateHydraulicConductivity(effectiveK, waterDensity, waterViscosity_pas);
                 
                 segmentProps.push({
                     k_md,
                     k_m2,
                     effectiveK,
-                    avgHeight,
-                    avgWidth,
-                    avgNTG,
-                    avgPorosity,
+                    height,
+                    width: width_m,  // Store in meters
+                    ntg,
+                    porosity,
                     effectiveHeight,
                     transmissibility,
                     storativity,
@@ -4144,7 +4164,7 @@
                     // Update dimensions label
                     const dimLabel = document.getElementById(`dim${i}`);
                     if (dimLabel) {
-                        dimLabel.textContent = `${props.effectiveHeight.toFixed(0)} × ${(props.avgWidth/1000).toFixed(1)} km`;
+                        dimLabel.textContent = `${props.effectiveHeight.toFixed(0)} × ${(props.width/1000).toFixed(1)} km`;
                     }
                     
                     // Update distance label
