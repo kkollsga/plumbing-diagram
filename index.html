@@ -1244,6 +1244,7 @@
                     break;
                 case 'offtakeSettingsUpdated':
                     updatePressureChart();
+                    loadPressureTable(); // Reload pressure table to update initial pressure
                     updatePressureHistory();
                     updateSimulation();
                     break;
@@ -1600,6 +1601,17 @@
             document.getElementById('offtakeDepth').addEventListener('input', function() {
                 appState.updateOfftakeSettings({ offtakeDepth: parseFloat(this.value) });
                 updateOfftakeVirginPressure();
+                
+                // Update the station's depth as well
+                const stations = appState.getCurrentProject().config.stations;
+                if (stations && stations.length > 0) {
+                    const offtakeIndex = stations.findIndex(s => s.distance === 0);
+                    if (offtakeIndex !== -1) {
+                        appState.updateStation(offtakeIndex, {
+                            depth: parseFloat(this.value)
+                        });
+                    }
+                }
             });
             
             document.getElementById('useSplineInterpolation').addEventListener('change', function() {
@@ -3130,7 +3142,7 @@
                     ntg: 0.8,
                     porosity: 0.25,
                     permeability: 500,
-                    depth: 2000
+                    depth: project.config.offtakeDepth || 2000
                 };
             } else {
                 // Preserve existing offtake station
@@ -3138,6 +3150,8 @@
                 if (offtakeStation.customName) {
                     offtakeStation.name = offtakeStation.customName;
                 }
+                // Ensure offtake station depth matches the configured offtake depth
+                offtakeStation.depth = project.config.offtakeDepth || 2000;
             }
             
             // Add left stations (positive distances, but marked as left)
@@ -3440,7 +3454,8 @@
             tbody.innerHTML = '';
             
             // Always add the first row (hydrostatic at t=0)
-            const hydrostaticPressure = calculateHydrostaticPressure(project.config.offtakeDepth || 2000);
+            const offtakeDepth = project.config.offtakeDepth || 2000;
+            const hydrostaticPressure = calculateHydrostaticPressure(offtakeDepth);
             addPressureRowElement(0, hydrostaticPressure, true);
             
             // Add rows for existing pressure data (skip t=0)
