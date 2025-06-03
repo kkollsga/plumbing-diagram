@@ -1498,6 +1498,11 @@
                         <input type="text" id="modalCustomName" placeholder="Default: Station X" value="${station.customName || ''}">
                     </div>
                     <div class="input-field">
+                        <label>Depth (m tvdss)</label>
+                        <input type="number" id="modalDepth" step="10" value="${station.depth}">
+                        <div class="virgin-pressure-hint" id="stationVirginPressure">Virgin pressure: -- bar</div>
+                    </div>
+                    <div class="input-field">
                         <label>${distanceLabel}</label>
                         <input type="number" id="modalDistance" step="1" min="0" value="${station.segmentDistance}">
                     </div>
@@ -1520,11 +1525,6 @@
                     <div class="input-field">
                         <label>Porosity</label>
                         <input type="number" id="modalPorosity" step="0.01" min="0" max="1" value="${station.porosity}">
-                    </div>
-                    <div class="input-field">
-                        <label>Measurement Depth (m tvdss)</label>
-                        <input type="number" id="modalDepth" step="10" value="${station.depth}">
-                        <div class="virgin-pressure-hint" id="stationVirginPressure">Virgin pressure: -- bar</div>
                     </div>
                 </div>
             `;
